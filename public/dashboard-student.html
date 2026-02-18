@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Estudiante — Propulsor Journey</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+
+<body>
+    <button class="mobile-menu-btn" onclick="toggleSidebar()" id="menuBtn">☰</button>
+
+    <div class="app-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-logo">
+                <img src="/assets/logo-propulsor.svg" alt="Propulsor Journey">
+            </div>
+            <div class="sidebar-user">
+                <div class="user-avatar" id="userAvatar">?</div>
+                <div class="user-name" id="userName">Cargando...</div>
+                <div class="user-role">Estudiante</div>
+            </div>
+            <nav class="sidebar-nav">
+                <div class="nav-section-title">Principal</div>
+                <a class="nav-item active" onclick="showSection('grades')" href="#">
+                    <span class="icon">📊</span> Mis Calificaciones
+                </a>
+                <a class="nav-item" onclick="showSection('evaluation')" href="#">
+                    <span class="icon">⭐</span> Evaluar Docentes
+                </a>
+                <div class="nav-section-title" style="margin-top:12px">Reportes</div>
+                <a class="nav-item" onclick="downloadPDF()" href="#">
+                    <span class="icon">📄</span> Descargar Reporte PDF
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <button class="btn-logout" onclick="logout()">🚪 Cerrar Sesión</button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Section: Grades -->
+            <div id="section-grades">
+                <div class="page-header">
+                    <div class="page-title">📊 Mis Calificaciones</div>
+                    <div class="page-subtitle" id="programaLabel">Cargando programa...</div>
+                </div>
+
+                <!-- Welcome Banner -->
+                <div class="welcome-banner">
+                    <div class="welcome-greeting">¡Bienvenido de vuelta!</div>
+                    <div class="welcome-name" id="welcomeName">Estudiante</div>
+                    <div class="welcome-program" id="welcomeProgram">Cargando...</div>
+                </div>
+
+                <!-- KPIs -->
+                <div class="kpi-grid" id="kpiGrid">
+                    <div class="kpi-card">
+                        <div class="kpi-icon red">📚</div>
+                        <div>
+                            <div class="kpi-value" id="kpiMaterias">—</div>
+                            <div class="kpi-label">Materias</div>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-icon green">📈</div>
+                        <div>
+                            <div class="kpi-value" id="kpiPromedio">—</div>
+                            <div class="kpi-label">Promedio General</div>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-icon blue">✅</div>
+                        <div>
+                            <div class="kpi-value" id="kpiAprobadas">—</div>
+                            <div class="kpi-label">Materias Aprobadas</div>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-icon yellow">⚠️</div>
+                        <div>
+                            <div class="kpi-value" id="kpiRiesgo">—</div>
+                            <div class="kpi-label">En Riesgo</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Grades Table -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">📋 Registro de Calificaciones</div>
+                        <button class="btn btn-primary btn-sm" onclick="downloadPDF()">📄 Descargar PDF</button>
+                    </div>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Materia</th>
+                                    <th>Docente</th>
+                                    <th>Nota</th>
+                                    <th>Estado</th>
+                                    <th>Progreso</th>
+                                </tr>
+                            </thead>
+                            <tbody id="gradesTableBody">
+                                <tr>
+                                    <td colspan="5" style="text-align:center;padding:32px;color:var(--gray-400)">
+                                        Cargando calificaciones...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Chart -->
+                <div class="card" style="margin-top:20px">
+                    <div class="card-header">
+                        <div class="card-title">📉 Distribución de Notas</div>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="gradesChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section: Evaluation -->
+            <div id="section-evaluation" style="display:none">
+                <div class="page-header">
+                    <div class="page-title">⭐ Evaluación Docente</div>
+                    <div class="page-subtitle">Evalúa el desempeño de tus docentes (una sola vez por docente)</div>
+                </div>
+
+                <div id="teachersList"></div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Loading overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-box">
+            <div class="loading-spinner-large"></div>
+            <div style="font-size:15px;font-weight:600;color:var(--gray-700)">Cargando...</div>
+        </div>
+    </div>
+
+    <script>
+        let studentData = null;
+        let evaluationData = null;
+        let gradesChart = null;
+
+        async function init() {
+            try {
+                const meRes = await fetch('/api/me');
+                if (!meRes.ok) { window.location.href = '/'; return; }
+                const me = await meRes.json();
+                if (me.user.role !== 'estudiante') { window.location.href = '/'; return; }
+
+                document.getElementById('userAvatar').textContent = me.user.nombre.charAt(0).toUpperCase();
+                document.getElementById('userName').textContent = me.user.nombre;
+
+                await loadGrades();
+                await loadEvaluationData();
+                document.getElementById('loadingOverlay').style.display = 'none';
+            } catch (e) {
+                window.location.href = '/';
+            }
+        }
+
+        async function loadGrades() {
+            const res = await fetch('/api/student/grades');
+            if (!res.ok) return;
+            studentData = await res.json();
+
+            document.getElementById('welcomeName').textContent = studentData.nombre;
+            document.getElementById('welcomeProgram').textContent = studentData.programa;
+            document.getElementById('programaLabel').textContent = studentData.programa;
+
+            const materias = studentData.materias;
+            const aprobadas = materias.filter(m => m.nota !== null && parseFloat(m.nota) >= 3.0).length;
+            const riesgo = materias.filter(m => m.nota !== null && parseFloat(m.nota) < 3.0).length;
+
+            document.getElementById('kpiMaterias').textContent = materias.length;
+            document.getElementById('kpiPromedio').textContent = studentData.promedio || 'N/A';
+            document.getElementById('kpiAprobadas').textContent = aprobadas;
+            document.getElementById('kpiRiesgo').textContent = riesgo;
+
+            // Table
+            const tbody = document.getElementById('gradesTableBody');
+            tbody.innerHTML = materias.map(m => {
+                const nota = m.nota !== null && m.nota !== undefined ? parseFloat(m.nota) : null;
+                const notaStr = nota !== null ? nota.toFixed(1) : 'Sin nota';
+                const gradeClass = nota === null ? 'grade-none' : nota >= 3.5 ? 'grade-high' : nota >= 3.0 ? 'grade-mid' : 'grade-low';
+                const badgeClass = nota === null ? 'badge-gray' : nota >= 3.0 ? 'badge-success' : 'badge-danger';
+                const badgeText = nota === null ? 'Pendiente' : nota >= 3.0 ? 'Aprobado' : 'Reprobado';
+                const pct = nota !== null ? Math.min(100, (nota / 5 * 100)).toFixed(0) : 0;
+                const barColor = nota === null ? '#ccc' : nota >= 3.5 ? '#16a34a' : nota >= 3.0 ? '#d97706' : '#dc2626';
+                const alertIcon = nota !== null && nota < 3.0 ? '⚠️ ' : '';
+                return `<tr>
+          <td><strong>${alertIcon}${m.materia}</strong></td>
+          <td>${m.docente}</td>
+          <td><span class="grade-pill ${gradeClass}">${notaStr}</span></td>
+          <td><span class="badge ${badgeClass}">${badgeText}</span></td>
+          <td style="min-width:120px">
+            <div class="progress-bar">
+              <div class="progress-fill" style="width:${pct}%;background:${barColor}"></div>
+            </div>
+          </td>
+        </tr>`;
+            }).join('');
+
+            // Chart
+            renderChart(materias);
+        }
+
+        function renderChart(materias) {
+            const ctx = document.getElementById('gradesChart').getContext('2d');
+            if (gradesChart) gradesChart.destroy();
+            const labels = materias.map(m => m.materia);
+            const values = materias.map(m => m.nota !== null ? parseFloat(m.nota) : 0);
+            const colors = values.map(v => v >= 3.5 ? '#16a34a' : v >= 3.0 ? '#d97706' : v > 0 ? '#dc2626' : '#ccc');
+
+            gradesChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: 'Calificación',
+                        data: values,
+                        backgroundColor: colors,
+                        borderRadius: 8,
+                        borderSkipped: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => `Nota: ${ctx.raw.toFixed(1)}`
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            min: 0, max: 5,
+                            grid: { color: '#f1f3f5' },
+                            ticks: { stepSize: 1 }
+                        },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        async function loadEvaluationData() {
+            const res = await fetch('/api/student/evaluation-questions');
+            if (!res.ok) return;
+            evaluationData = await res.json();
+            renderTeachersList();
+        }
+
+        function renderTeachersList() {
+            if (!evaluationData) return;
+            const container = document.getElementById('teachersList');
+            container.innerHTML = evaluationData.teachers.map(t => `
+        <div class="card" style="margin-bottom:20px">
+          <div class="card-header">
+            <div class="card-title">👨‍🏫 ${t.nombre}</div>
+            ${t.evaluated
+                    ? '<span class="badge badge-success">✓ Evaluado</span>'
+                    : '<span class="badge badge-warning">Pendiente</span>'}
+          </div>
+          ${t.evaluated
+                    ? `<div class="card-body"><div class="alert alert-success">✅ Ya enviaste tu evaluación para este docente. ¡Gracias!</div></div>`
+                    : `<div class="card-body">
+                <form onsubmit="submitEvaluation(event, '${t.username}')">
+                  ${evaluationData.questions.map((q, i) => `
+                    <div class="form-group">
+                      <div class="form-label">${i + 1}. ${q.pregunta}</div>
+                      <div class="rating-group">
+                        ${[1, 2, 3, 4, 5].map(v => `
+                          <button type="button" class="rating-btn" data-q="${q.id}" data-v="${v}" onclick="selectRating(this, '${t.username}', ${q.id}, ${v})">${v}</button>
+                        `).join('')}
+                        <span style="font-size:12px;color:var(--gray-400);margin-left:4px">1=Deficiente · 5=Excelente</span>
+                      </div>
+                    </div>
+                  `).join('')}
+                  <button type="submit" class="btn btn-primary" id="submitBtn-${t.username}">
+                    📤 Enviar Evaluación
+                  </button>
+                </form>
+              </div>`
+                }
+        </div>
+      `).join('') || '<div class="empty-state"><div class="icon">📭</div><p>No tienes docentes para evaluar</p></div>';
+        }
+
+        const ratings = {};
+        function selectRating(btn, teacherUser, questionId, value) {
+            if (!ratings[teacherUser]) ratings[teacherUser] = {};
+            ratings[teacherUser][questionId] = value;
+            // Update UI
+            document.querySelectorAll(`[data-q="${questionId}"]`).forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+        }
+
+        async function submitEvaluation(e, teacherUser) {
+            e.preventDefault();
+            const teacherRatings = ratings[teacherUser] || {};
+            const questions = evaluationData.questions;
+            if (Object.keys(teacherRatings).length < questions.length) {
+                showToast('Por favor responde todas las preguntas', 'error');
+                return;
+            }
+            const answers = questions.map(q => ({ questionId: q.id, value: teacherRatings[q.id] }));
+            const btn = document.getElementById(`submitBtn-${teacherUser}`);
+            btn.disabled = true;
+            btn.textContent = 'Enviando...';
+
+            try {
+                const res = await fetch('/api/student/evaluation', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ teacherUser, answers })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showToast('✅ Evaluación enviada correctamente', 'success');
+                    await loadEvaluationData();
+                } else {
+                    showToast(data.error || 'Error al enviar', 'error');
+                    btn.disabled = false;
+                    btn.textContent = '📤 Enviar Evaluación';
+                }
+            } catch (err) {
+                showToast('Error de conexión', 'error');
+                btn.disabled = false;
+            }
+        }
+
+        async function downloadPDF() {
+            showToast('⏳ Generando PDF...', 'info');
+            try {
+                const res = await fetch('/api/pdf/student');
+                if (!res.ok) { showToast('Error generando PDF', 'error'); return; }
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `reporte-academico.pdf`;
+                a.click();
+                URL.revokeObjectURL(url);
+                showToast('✅ PDF descargado', 'success');
+            } catch (e) {
+                showToast('Error al descargar PDF', 'error');
+            }
+        }
+
+        function showSection(name) {
+            document.querySelectorAll('[id^="section-"]').forEach(s => s.style.display = 'none');
+            document.getElementById(`section-${name}`).style.display = 'block';
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+            if (window.innerWidth <= 768) document.getElementById('sidebar').classList.remove('open');
+        }
+
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+        }
+
+        async function logout() {
+            await fetch('/api/logout', { method: 'POST' });
+            window.location.href = '/';
+        }
+
+        function showToast(msg, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = msg;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 3500);
+        }
+
+        init();
+    </script>
+</body>
+
+</html>

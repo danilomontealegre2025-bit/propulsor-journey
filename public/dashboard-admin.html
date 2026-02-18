@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Administrativo — Propulsor Journey</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+
+<body>
+    <button class="mobile-menu-btn" onclick="toggleSidebar()">☰</button>
+
+    <div class="app-layout">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-logo">
+                <img src="/assets/logo-propulsor.svg" alt="Propulsor Journey">
+            </div>
+            <div class="sidebar-user">
+                <div class="user-avatar" id="userAvatar">A</div>
+                <div class="user-name" id="userName">Administrador</div>
+                <div class="user-role">Administrativo</div>
+            </div>
+            <nav class="sidebar-nav">
+                <div class="nav-section-title">Estadísticas</div>
+                <a class="nav-item active" onclick="showSection('stats')" href="#">
+                    <span class="icon">📊</span> Panel General
+                </a>
+                <div class="nav-section-title" style="margin-top:8px">Listados</div>
+                <a class="nav-item" onclick="showSection('students-list')" href="#">
+                    <span class="icon">👥</span> Estudiantes
+                </a>
+                <a class="nav-item" onclick="showSection('teachers-list')" href="#">
+                    <span class="icon">👩‍🏫</span> Docentes
+                </a>
+                </a>
+                <div class="nav-section-title" style="margin-top:8px">Gestión</div>
+                <a class="nav-item" onclick="showSection('management')" href="#">
+                    <span class="icon">⚙️</span> Gestión de Datos
+                </a>
+                <div class="nav-section-title" style="margin-top:8px">Reportes</div>
+                <a class="nav-item" onclick="downloadAdminPDF()" href="#">
+                    <span class="icon">📄</span> Informe General PDF
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <button class="btn-logout" onclick="logout()">🚪 Cerrar Sesión</button>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <!-- Section: Stats -->
+            <div id="section-stats">
+                <div class="page-header">
+                    <div class="page-title">📊 Panel General Administrativo</div>
+                    <div class="page-subtitle">Estadísticas académicas en tiempo real</div>
+                </div>
+
+                <div class="welcome-banner">
+                    <div class="welcome-greeting">Panel de Control</div>
+                    <div class="welcome-name">Administrador del Sistema</div>
+                    <div class="welcome-program">Universidad Externado de Colombia · Propulsor Journey</div>
+                </div>
+
+                <!-- KPIs -->
+                <div class="kpi-grid" id="adminKpis">
+                    <div class="kpi-card">
+                        <div class="kpi-icon red">🎓</div>
+                        <div>
+                            <div class="kpi-value" id="kpiStudents">—</div>
+                            <div class="kpi-label">Estudiantes</div>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-icon blue">👨‍🏫</div>
+                        <div>
+                            <div class="kpi-value" id="kpiTeachers">—</div>
+                            <div class="kpi-label">Docentes</div>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-icon green">📚</div>
+                        <div>
+                            <div class="kpi-value" id="kpiPrograms">—</div>
+                            <div class="kpi-label">Programas</div>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-icon yellow">📈</div>
+                        <div>
+                            <div class="kpi-value" id="kpiAvg">—</div>
+                            <div class="kpi-label">Promedio General</div>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-icon green">✅</div>
+                        <div>
+                            <div class="kpi-value" id="kpiPass">—%</div>
+                            <div class="kpi-label">Tasa de Aprobación</div>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-icon blue">⭐</div>
+                        <div>
+                            <div class="kpi-value" id="kpiEvals">—</div>
+                            <div class="kpi-label">Evaluaciones Docentes</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Highlights -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px" id="highlightsGrid">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">🏆 Destacados</div>
+                        </div>
+                        <div class="card-body" id="highlightsContent">
+                            <div style="color:var(--gray-400);text-align:center;padding:20px">Cargando...</div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">📊 Estudiantes por Programa</div>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container" style="height:220px">
+                                <canvas id="programChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Programs table -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">📋 Rendimiento por Programa</div>
+                        <button class="btn btn-primary btn-sm" onclick="downloadAdminPDF()">📄 Informe PDF</button>
+                    </div>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Programa</th>
+                                    <th style="text-align:center">Estudiantes</th>
+                                    <th style="text-align:center">Promedio</th>
+                                    <th style="text-align:center">Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody id="programsTable">
+                                <tr>
+                                    <td colspan="4" style="text-align:center;padding:32px;color:var(--gray-400)">
+                                        Cargando...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Subject averages chart -->
+                <div class="card" style="margin-top:20px">
+                    <div class="card-header">
+                        <div class="card-title">📉 Promedio por Materia</div>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="subjectChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section: Students List -->
+            <div id="section-students-list" style="display:none">
+                <div class="page-header">
+                    <div class="page-title">👥 Listado de Estudiantes</div>
+                    <div class="page-subtitle" id="totalStudentsSub">Cargando...</div>
+                </div>
+                <div class="card">
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Usuario</th>
+                                    <th>Nombre</th>
+                                    <th>Programa</th>
+                                    <th>Promedio</th>
+                                    <th style="text-align:right">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="adminStudentsTable">
+                                <tr>
+                                    <td colspan="5" style="text-align:center;padding:32px">Cargando...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section: Teachers List -->
+            <div id="section-teachers-list" style="display:none">
+                <div class="page-header">
+                    <div class="page-title">👩‍🏫 Listado de Docentes</div>
+                    <div class="page-subtitle" id="totalTeachersSub">Cargando...</div>
+                </div>
+                <div class="card">
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Usuario</th>
+                                    <th>Nombre</th>
+                                    <th>Programas</th>
+                                    <th>Estudiantes</th>
+                                    <th style="text-align:right">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="adminTeachersTable">
+                                <tr>
+                                    <td colspan="5" style="text-align:center;padding:32px">Cargando...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal for Teacher Evaluations -->
+            <div id="evaluationModal" class="modal" style="display:none">
+                <div class="modal-content card">
+                    <div class="card-header">
+                        <div class="card-title">⭐ Resultados de Evaluación: <span id="modalTeacherName"></span></div>
+                        <button class="btn btn-secondary btn-sm" onclick="closeModal()">✕</button>
+                    </div>
+                    <div class="card-body">
+                        <div class="kpi-grid">
+                            <div class="kpi-card" style="padding:15px">
+                                <div class="kpi-value" id="modalOverallAvg">—</div>
+                                <div class="kpi-label">Promedio Global</div>
+                            </div>
+                            <div class="kpi-card" style="padding:15px">
+                                <div class="kpi-value" id="modalTotalEvals">—</div>
+                                <div class="kpi-label">Evaluaciones</div>
+                            </div>
+                        </div>
+                        <div id="modalQuestionStats" style="margin-top:20px"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section: Management -->
+            <div id="section-management" style="display:none">
+                <div class="page-header">
+                    <div class="page-title">⚙️ Gestión de Datos</div>
+                    <div class="page-subtitle">Administra los datos del sistema académico</div>
+                </div>
+
+                <!-- Upload Excel -->
+                <div class="card" style="margin-bottom:20px">
+                    <div class="card-header">
+                        <div class="card-title">📂 Cargar Nuevo Excel</div>
+                    </div>
+                    <div class="card-body">
+                        <p style="font-size:14px;color:var(--gray-600);margin-bottom:16px">
+                            Sube un nuevo archivo Excel para actualizar todos los datos del sistema. Esto reiniciará los
+                            datos actuales.
+                        </p>
+                        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+                            <input type="file" id="excelFile" accept=".xlsx,.xls" style="display:none"
+                                onchange="uploadExcel()">
+                            <button class="btn btn-primary" onclick="document.getElementById('excelFile').click()">
+                                📂 Seleccionar Archivo Excel
+                            </button>
+                            <span id="uploadStatus" style="font-size:13px;color:var(--gray-500)"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Clear Data -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">🗑️ Limpiar Datos</div>
+                    </div>
+                    <div class="card-body">
+                        <p style="font-size:14px;color:var(--gray-600);margin-bottom:20px">
+                            Limpia datos específicos del sistema. Esta acción no puede deshacerse.
+                        </p>
+                        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
+                            <div class="card" style="border:1px solid #fee2e2">
+                                <div class="card-body" style="text-align:center;padding:20px">
+                                    <div style="font-size:32px;margin-bottom:8px">📊</div>
+                                    <div style="font-weight:600;margin-bottom:4px">Notas</div>
+                                    <div style="font-size:12px;color:var(--gray-500);margin-bottom:12px">Limpia las
+                                        notas modificadas</div>
+                                    <button class="btn btn-danger btn-sm" onclick="clearData('notes')">Limpiar
+                                        Notas</button>
+                                </div>
+                            </div>
+                            <div class="card" style="border:1px solid #fee2e2">
+                                <div class="card-body" style="text-align:center;padding:20px">
+                                    <div style="font-size:32px;margin-bottom:8px">⭐</div>
+                                    <div style="font-weight:600;margin-bottom:4px">Evaluaciones</div>
+                                    <div style="font-size:12px;color:var(--gray-500);margin-bottom:12px">Limpia todas
+                                        las evaluaciones</div>
+                                    <button class="btn btn-danger btn-sm" onclick="clearData('evaluations')">Limpiar
+                                        Evaluaciones</button>
+                                </div>
+                            </div>
+                            <div class="card" style="border:1px solid #fee2e2">
+                                <div class="card-body" style="text-align:center;padding:20px">
+                                    <div style="font-size:32px;margin-bottom:8px">✅</div>
+                                    <div style="font-weight:600;margin-bottom:4px">Asistencia</div>
+                                    <div style="font-size:12px;color:var(--gray-500);margin-bottom:12px">Reinicia
+                                        registros de asistencia</div>
+                                    <button class="btn btn-danger btn-sm" onclick="clearData('attendance')">Limpiar
+                                        Asistencia</button>
+                                </div>
+                            </div>
+                            <div class="card" style="border:2px solid #dc2626">
+                                <div class="card-body" style="text-align:center;padding:20px">
+                                    <div style="font-size:32px;margin-bottom:8px">⚠️</div>
+                                    <div style="font-weight:600;margin-bottom:4px">Todo</div>
+                                    <div style="font-size:12px;color:var(--gray-500);margin-bottom:12px">Limpia todos
+                                        los datos del sistema</div>
+                                    <button class="btn btn-danger btn-sm" onclick="clearData('all')">Limpiar
+                                        Todo</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-box">
+            <div class="loading-spinner-large"></div>
+            <div style="font-size:15px;font-weight:600;color:var(--gray-700)">Cargando...</div>
+        </div>
+    </div>
+
+    <script>
+        let statsData = null;
+        let programChart = null;
+        let subjectChart = null;
+
+        async function init() {
+            try {
+                const meRes = await fetch('/api/me');
+                if (!meRes.ok) { window.location.href = '/'; return; }
+                const me = await meRes.json();
+                if (me.user.role !== 'administrativo') { window.location.href = '/'; return; }
+                document.getElementById('userAvatar').textContent = me.user.nombre.charAt(0).toUpperCase();
+                document.getElementById('userName').textContent = me.user.nombre;
+
+                await loadStats();
+                await populateSelects();
+                await loadAdminUsers();
+                document.getElementById('loadingOverlay').style.display = 'none';
+            } catch (e) {
+                window.location.href = '/';
+            }
+        }
+
+        async function loadAdminUsers() {
+            const res = await fetch('/api/admin/users');
+            if (!res.ok) return;
+            const data = await res.json();
+
+            // Render Students
+            const studentTable = document.getElementById('adminStudentsTable');
+            document.getElementById('totalStudentsSub').textContent = `${data.students.length} estudiantes registrados`;
+            studentTable.innerHTML = data.students.map(s => {
+                const results = calculateStudentAvg(s);
+                return `
+                    <tr>
+                        <td><code>${s.username}</code></td>
+                        <td><strong>${s.nombre}</strong></td>
+                        <td><span class="badge badge-red">${s.programa}</span></td>
+                        <td><strong style="color:${results.avg >= 3.0 ? 'var(--green)' : 'var(--red)'}">${results.avg || 'N/A'}</strong></td>
+                        <td style="text-align:right">
+                            <button class="btn btn-secondary btn-sm" onclick="downloadStudentPDF('${s.username}')">📄 PDF</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            // Render Teachers
+            const teacherTable = document.getElementById('adminTeachersTable');
+            document.getElementById('totalTeachersSub').textContent = `${data.teachers.length} docentes registrados`;
+            teacherTable.innerHTML = data.teachers.map(t => `
+                <tr>
+                    <td><code>${t.username}</code></td>
+                    <td><strong>${t.nombre}</strong></td>
+                    <td>${t.programas.map(p => `<span class="badge badge-info" style="margin:2px">${p}</span>`).join('')}</td>
+                    <td style="text-align:center"><span class="badge badge-gray">${t.estudiantes ? t.estudiantes.length : 0}</span></td>
+                    <td style="text-align:right">
+                        <button class="btn btn-secondary btn-sm" onclick="viewEvaluations('${t.username}')">⭐ Eval</button>
+                        <button class="btn btn-secondary btn-sm" onclick="showSection('teacher-view'); document.getElementById('teacherSelect').value='${t.username}'; loadTeacherView();">👁️ Ver</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function viewEvaluations(teacherUser) {
+            const res = await fetch(`/api/admin/teacher-evaluations/${teacherUser}`);
+            if (!res.ok) return showToast('Error al cargar evaluaciones', 'error');
+            const data = await res.json();
+
+            document.getElementById('modalTeacherName').textContent = data.teacherName;
+            document.getElementById('modalOverallAvg').textContent = data.overallAvg;
+            document.getElementById('modalTotalEvals').textContent = data.totalEvaluations;
+
+            const statsContainer = document.getElementById('modalQuestionStats');
+            statsContainer.innerHTML = data.questionStats.map((q, i) => {
+                const pct = q.avg !== 'N/A' ? (parseFloat(q.avg) / 5 * 100).toFixed(0) : 0;
+                const color = parseFloat(q.avg) >= 4 ? 'var(--green)' : parseFloat(q.avg) >= 3 ? 'var(--yellow)' : 'var(--red)';
+                return `
+                    <div style="margin-bottom:15px">
+                        <div style="font-size:13px; font-weight:600; margin-bottom:5px">${i + 1}. ${q.pregunta}</div>
+                        <div style="display:flex; align-items:center; gap:10px">
+                            <div class="progress-bar" style="flex:1">
+                                <div class="progress-fill" style="width:${pct}%; background:${color}"></div>
+                            </div>
+                            <span style="font-weight:bold; width:35px">${q.avg}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('') || '<p style="text-align:center; padding:20px">No hay evaluaciones para este docente.</p>';
+
+            document.getElementById('evaluationModal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('evaluationModal').style.display = 'none';
+        }
+
+        function calculateStudentAvg(student) {
+            if (!student.materias || !student.materias.length) return { avg: null };
+            const withNotes = student.materias.filter(m => m.nota !== null && !isNaN(m.nota));
+            const avg = withNotes.length ? (withNotes.reduce((s, m) => s + parseFloat(m.nota), 0) / withNotes.length).toFixed(2) : null;
+            return { avg };
+        }
+
+        async function loadStats() {
+            const res = await fetch('/api/admin/stats');
+            if (!res.ok) return;
+            statsData = await res.json();
+
+            document.getElementById('kpiStudents').textContent = statsData.totalStudents;
+            document.getElementById('kpiTeachers').textContent = statsData.totalTeachers;
+            document.getElementById('kpiPrograms').textContent = statsData.totalPrograms;
+            document.getElementById('kpiAvg').textContent = statsData.overallAvg || 'N/A';
+            document.getElementById('kpiPass').textContent = statsData.passRate + '%';
+            document.getElementById('kpiEvals').textContent = statsData.totalEvaluations;
+
+            // Highlights
+            const highlights = document.getElementById('highlightsContent');
+            highlights.innerHTML = `
+        ${statsData.bestSubject ? `<div class="alert alert-success" style="margin-bottom:10px">📈 <strong>Mejor materia:</strong> ${statsData.bestSubject.name} (${statsData.bestSubject.avg})</div>` : ''}
+        ${statsData.worstSubject ? `<div class="alert alert-warning" style="margin-bottom:10px">📉 <strong>Materia en riesgo:</strong> ${statsData.worstSubject.name} (${statsData.worstSubject.avg})</div>` : ''}
+        ${statsData.bestTeacher ? `<div class="alert alert-info">⭐ <strong>Mejor docente:</strong> ${statsData.bestTeacher.name} (${statsData.bestTeacher.avg}/5)</div>` : ''}
+        ${!statsData.bestSubject && !statsData.worstSubject ? '<div style="color:var(--gray-400);text-align:center;padding:20px">Sin datos suficientes</div>' : ''}
+      `;
+
+            // Programs table
+            const tbody = document.getElementById('programsTable');
+            const programs = Object.entries(statsData.byProgram);
+            tbody.innerHTML = programs.map(([prog, d]) => {
+                const avg = d.avg ? parseFloat(d.avg) : null;
+                const badgeClass = avg === null ? 'badge-gray' : avg >= 3.5 ? 'badge-success' : avg >= 3.0 ? 'badge-warning' : 'badge-danger';
+                const badgeText = avg === null ? 'Sin datos' : avg >= 3.0 ? 'Satisfactorio' : 'En riesgo';
+                return `<tr>
+          <td><strong>${prog}</strong></td>
+          <td style="text-align:center">${d.count}</td>
+          <td style="text-align:center;font-weight:700;color:${avg >= 3.5 ? '#16a34a' : avg >= 3.0 ? '#d97706' : '#dc2626'}">${d.avg || 'N/A'}</td>
+          <td style="text-align:center"><span class="badge ${badgeClass}">${badgeText}</span></td>
+        </tr>`;
+            }).join('') || '<tr><td colspan="4" style="text-align:center;padding:32px;color:var(--gray-400)">Sin datos</td></tr>';
+
+            renderProgramChart(programs);
+            renderSubjectChart(statsData.subjectAvgs || []);
+        }
+
+        function renderProgramChart(programs) {
+            const ctx = document.getElementById('programChart').getContext('2d');
+            if (programChart) programChart.destroy();
+            const colors = ['#8B0000', '#b30000', '#d44', '#e66', '#f88', '#faa'];
+            programChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: programs.map(([p]) => p.length > 30 ? p.substring(0, 30) + '...' : p),
+                    datasets: [{ data: programs.map(([, d]) => d.count), backgroundColor: colors, borderWidth: 2, borderColor: '#fff' }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12 } } }
+                }
+            });
+        }
+
+        function renderSubjectChart(subjectAvgs) {
+            const ctx = document.getElementById('subjectChart').getContext('2d');
+            if (subjectChart) subjectChart.destroy();
+            const top = subjectAvgs.slice(0, 10);
+            subjectChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: top.map(s => s.name),
+                    datasets: [{
+                        label: 'Promedio',
+                        data: top.map(s => parseFloat(s.avg)),
+                        backgroundColor: top.map(s => parseFloat(s.avg) >= 3.5 ? '#16a34a' : parseFloat(s.avg) >= 3.0 ? '#d97706' : '#dc2626'),
+                        borderRadius: 8, borderSkipped: false
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { min: 0, max: 5, grid: { color: '#f1f3f5' }, ticks: { stepSize: 1 } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        async function populateSelects() {
+            // Populate student select
+            const gradesRes = await fetch('/api/admin/stats');
+            if (!gradesRes.ok) return;
+            const data = await gradesRes.json();
+
+            // We'll use the stats to get student list - fetch from a different endpoint
+            // For now, populate from known data
+            const studentSelect = document.getElementById('studentSelect');
+            const teacherSelect = document.getElementById('teacherSelect');
+
+            // Fetch teacher info to get student list
+            const teacherRes = await fetch('/api/teacher/info');
+            if (teacherRes.ok) {
+                const tData = await teacherRes.json();
+                tData.estudiantes.forEach(s => {
+                    const opt = document.createElement('option');
+                    opt.value = s.usuario;
+                    opt.textContent = `${s.nombre} (${s.usuario})`;
+                    studentSelect.appendChild(opt);
+                });
+            }
+        }
+
+        async function loadStudentView() {
+            const username = document.getElementById('studentSelect').value;
+            if (!username) return;
+            const container = document.getElementById('studentViewContent');
+            container.innerHTML = '<div class="empty-state"><div class="loading-spinner-large" style="margin:0 auto"></div></div>';
+
+            try {
+                const res = await fetch(`/api/pdf/student/${username}`);
+                // Just show a download button and basic info
+                container.innerHTML = `
+          <div class="card">
+            <div class="card-body" style="text-align:center;padding:32px">
+              <div style="font-size:48px;margin-bottom:12px">🎓</div>
+              <h3 style="margin-bottom:8px">Estudiante: ${username}</h3>
+              <p style="color:var(--gray-500);margin-bottom:20px">Descarga el reporte completo del estudiante</p>
+              <button class="btn btn-primary" onclick="downloadStudentPDF('${username}')">📄 Descargar Reporte PDF</button>
+            </div>
+          </div>
+        `;
+            } catch (e) {
+                container.innerHTML = '<div class="alert alert-danger">Error cargando datos del estudiante</div>';
+            }
+        }
+
+        async function downloadStudentPDF(username) {
+            showToast('⏳ Generando PDF...', 'info');
+            const res = await fetch(`/api/pdf/student/${username}`);
+            if (!res.ok) { showToast('Error generando PDF', 'error'); return; }
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `reporte-${username}.pdf`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('✅ PDF descargado', 'success');
+        }
+
+        function loadTeacherView() {
+            const username = document.getElementById('teacherSelect').value;
+            if (!username) return;
+            document.getElementById('teacherViewContent').innerHTML = `
+        <div class="card">
+          <div class="card-body" style="text-align:center;padding:32px">
+            <div style="font-size:48px;margin-bottom:12px">👨‍🏫</div>
+            <h3 style="margin-bottom:8px">Docente: ${username}</h3>
+            <p style="color:var(--gray-500);margin-bottom:20px">Vista del panel docente</p>
+            <a href="/dashboard-teacher" class="btn btn-primary">🔗 Ir al Panel Docente</a>
+          </div>
+        </div>
+      `;
+        }
+
+        async function uploadExcel() {
+            const file = document.getElementById('excelFile').files[0];
+            if (!file) return;
+            const status = document.getElementById('uploadStatus');
+            status.textContent = '⏳ Subiendo archivo...';
+
+            const formData = new FormData();
+            formData.append('excel', file);
+
+            try {
+                const res = await fetch('/api/admin/upload', { method: 'POST', body: formData });
+                const data = await res.json();
+                if (res.ok) {
+                    status.textContent = `✅ ${data.message} (${data.users} usuarios cargados)`;
+                    showToast('✅ Excel cargado correctamente', 'success');
+                    await loadStats();
+                } else {
+                    status.textContent = `❌ ${data.error}`;
+                    showToast('Error al cargar Excel', 'error');
+                }
+            } catch (e) {
+                status.textContent = '❌ Error de conexión';
+                showToast('Error de conexión', 'error');
+            }
+        }
+
+        async function clearData(type) {
+            const labels = { notes: 'notas', evaluations: 'evaluaciones', attendance: 'asistencia', all: 'todos los datos' };
+            if (!confirm(`¿Estás seguro de que deseas limpiar ${labels[type]}? Esta acción no puede deshacerse.`)) return;
+
+            try {
+                const res = await fetch('/api/admin/clear', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ type })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showToast(`✅ ${data.message}`, 'success');
+                    await loadStats();
+                } else {
+                    showToast('Error al limpiar datos', 'error');
+                }
+            } catch (e) {
+                showToast('Error de conexión', 'error');
+            }
+        }
+
+        async function downloadAdminPDF() {
+            showToast('⏳ Generando informe general...', 'info');
+            try {
+                const res = await fetch('/api/pdf/admin');
+                if (!res.ok) { showToast('Error generando PDF', 'error'); return; }
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'informe-general-estadistico.pdf';
+                a.click();
+                URL.revokeObjectURL(url);
+                showToast('✅ Informe descargado', 'success');
+            } catch (e) {
+                showToast('Error al descargar informe', 'error');
+            }
+        }
+
+        function showSection(name) {
+            document.querySelectorAll('[id^="section-"]').forEach(s => s.style.display = 'none');
+            document.getElementById(`section-${name}`).style.display = 'block';
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+            if (window.innerWidth <= 768) document.getElementById('sidebar').classList.remove('open');
+        }
+
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+        }
+
+        async function logout() {
+            await fetch('/api/logout', { method: 'POST' });
+            window.location.href = '/';
+        }
+
+        function showToast(msg, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = msg;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 3500);
+        }
+
+        init();
+    </script>
+</body>
+
+</html>

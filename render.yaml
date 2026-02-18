@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: propulsor-journey
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 18.16.0
+      - key: PUPPETEER_SKIP_CHROMIUM_DOWNLOAD
+        value: "true"
+      - key: PUPPETEER_EXECUTABLE_PATH
+        value: /usr/bin/google-chrome-stable
+    # This part is crucial for making PDFs work on Render
+    # We use a Dockerfile or a custom build command if needed, 
+    # but Render's native environment supports some dependencies.
+    # For a perfect result, a Dockerfile is safer for Puppeteer.

@@ -278,8 +278,10 @@ async function generateAdminReportPDF(stats) {
 }
 
 async function htmlToPDF(html) {
-    const browser = await puppeteer.launch({
+        const browser = await puppeteer.launch({
         headless: 'new',
+        executablePath: 
+            process.env.PUPPETEER_EXECUTABLE_PATH || null,
         args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
     const page = await browser.newPage();

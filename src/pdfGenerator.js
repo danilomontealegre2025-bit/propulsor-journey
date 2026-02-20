@@ -117,7 +117,6 @@ async function generateTeacherEvaluationPDF(teacherData, evaluations, questions)
     const fecha = new Date().toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' });
     const totalEvals = evaluations.length;
 
-    // Calculate averages per question
     const questionAverages = questions.map(q => {
         const answers = evaluations.map(e => {
             const ans = e.answers.find(a => a.questionId == q.id);

@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Informe de Proyecto — Propulsor Journey</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --red: #8B0000;
+            --red-light: #dc2626;
+            --gray-900: #111827;
+            --gray-600: #4b5563;
+            --gray-100: #f3f4f6;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            line-height: 1.6;
+            color: var(--gray-900);
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            background-color: white;
+        }
+
+        .header {
+            text-align: center;
+            border-bottom: 2px solid var(--red);
+            padding-bottom: 20px;
+            margin-bottom: 40px;
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: 800;
+            color: var(--red);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        h1 {
+            font-size: 32px;
+            margin-top: 10px;
+        }
+
+        h2 {
+            color: var(--red);
+            border-left: 4px solid var(--red);
+            padding-left: 15px;
+            margin-top: 30px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            background: #dcfce7;
+            color: #166534;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .feature-item {
+            background: var(--gray-100);
+            padding: 20px;
+            border-radius: 12px;
+        }
+
+        .feature-item h3 {
+            margin-top: 0;
+            color: var(--red);
+        }
+
+        .footer {
+            margin-top: 50px;
+            text-align: center;
+            font-size: 14px;
+            color: var(--gray-600);
+            border-top: 1px solid var(--gray-100);
+            padding-top: 20px;
+        }
+
+        .btn {
+            display: inline-block;
+            background: var(--red);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            margin-top: 20px;
+        }
+
+        .btn:hover {
+            background: var(--red-light);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <div class="logo">Universidad Externado de Colombia</div>
+        <h1>Informe de Estado: Propulsor Journey</h1>
+    </div>
+
+    <div class="status-badge">✓ Repositorio Sincronizado con GitHub</div>
+
+    <p>Este informe detalla el estado actual de la plataforma <strong>Propulsor Journey</strong>, el sistema de gestión
+        académica diseñado para optimizar los procesos de la universidad.</p>
+
+    <h2>🚀 Funcionalidades Implementadas</h2>
+    <div class="feature-grid">
+        <div class="feature-item">
+            <h3>Gestión de Notas</h3>
+            <p>Persistencia completa de calificaciones ingresadas por docentes y visualización inmediata para
+                estudiantes.</p>
+        </div>
+        <div class="feature-item">
+            <h3>Roles de Usuario</h3>
+            <p>Sistemas de acceso diferenciados para Estudiantes, Docentes y Administradores vía Excel.</p>
+        </div>
+        <div class="feature-item">
+            <h3>Reportes PDF</h3>
+            <p>Generación automatizada de informes académicos y evaluaciones docentes en formato PDF.</p>
+        </div>
+        <div class="feature-item">
+            <h3>Branding</h3>
+            <p>Interfaz renovada con la identidad visual de la Universidad Externado de Colombia.</p>
+        </div>
+    </div>
+
+    <h2>🌐 Guía de Publicación</h2>
+    <p>Para que la aplicación sea funcional y accesible para todos, se recomienda usar <strong>Render.com</strong>:</p>
+    <ol>
+        <li>Crea una cuenta en <a href="https://render.com">Render.com</a>.</li>
+        <li>Conecta tu repositorio de GitHub <code>propulsor-journey</code>.</li>
+        <li>Render detectará automáticamente el archivo <code>render.yaml</code> y configurará el entorno.</li>
+        <li>¡Listo! Tu aplicación estará en línea en pocos minutos.</li>
+    </ol>
+
+    <h2>📄 Documentación del Proyecto</h2>
+    <p>Puedes encontrar detalles técnicos y guías de instalación en el archivo <code>README.md</code> del repositorio
+        principal.</p>
+
+    <div style="text-align: center;">
+        <a href="https://github.com/danilomontealegre2025-bit/propulsor-journey" class="btn">Ir al Repositorio en
+            GitHub</a>
+    </div>
+
+    <div class="footer">
+        © 2024 Universidad Externado de Colombia · Propulsor Journey Project
+    </div>
+</body>
+
+</html>

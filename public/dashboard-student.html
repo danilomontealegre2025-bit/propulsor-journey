@@ -16,12 +16,12 @@
         <!-- Sidebar -->
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-logo">
-                <img src="/assets/logo-propulsor.svg" alt="Propulsor Journey">
+                <img src="/assets/propulsor-banner.png" alt="Propulsor Journey" style="width:100%; opacity:0.9">
             </div>
             <div class="sidebar-user">
                 <div class="user-avatar" id="userAvatar">?</div>
                 <div class="user-name" id="userName">Cargando...</div>
-                <div class="user-role">Estudiante</div>
+                <div class="user-role student">Estudiante</div>
             </div>
             <nav class="sidebar-nav">
                 <div class="nav-section-title">Principal</div>
@@ -89,6 +89,11 @@
                     </div>
                 </div>
 
+                <div class="search-container">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" class="search-input" id="searchGrades" placeholder="Buscar materia o docente..."
+                        onkeyup="filterGrades()">
+                </div>
                 <!-- Grades Table -->
                 <div class="card">
                     <div class="card-header">
@@ -156,6 +161,7 @@
         let studentData = null;
         let evaluationData = null;
         let gradesChart = null;
+        let filteredMaterias = [];
 
         async function init() {
             try {
@@ -193,8 +199,19 @@
             document.getElementById('kpiAprobadas').textContent = aprobadas;
             document.getElementById('kpiRiesgo').textContent = riesgo;
 
-            // Table
+            filteredMaterias = [...studentData.materias];
+            renderGradesTable(filteredMaterias);
+
+            // Chart
+            renderChart(materias);
+        }
+
+        function renderGradesTable(materias) {
             const tbody = document.getElementById('gradesTableBody');
+            if (!materias.length) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--gray-400)">No se encontraron resultados</td></tr>';
+                return;
+            }
             tbody.innerHTML = materias.map(m => {
                 const nota = m.nota !== null && m.nota !== undefined ? parseFloat(m.nota) : null;
                 const notaStr = nota !== null ? nota.toFixed(1) : 'Sin nota';
@@ -219,6 +236,15 @@
 
             // Chart
             renderChart(materias);
+        }
+
+        function filterGrades() {
+            const query = document.getElementById('searchGrades').value.toLowerCase();
+            filteredMaterias = studentData.materias.filter(m =>
+                m.materia.toLowerCase().includes(query) ||
+                m.docente.toLowerCase().includes(query)
+            );
+            renderGradesTable(filteredMaterias);
         }
 
         function renderChart(materias) {

@@ -1,27 +1,27 @@
 const puppeteer = require('puppeteer');
 
-const EXTERNADO_RED = '#8B0000';
-const EXTERNADO_DARK = '#5a0000';
+const EXTERNADO_GREEN = '#004b32';
+const EXTERNADO_DARK = '#003624';
 
 function calcPromedio(materias) {
-    const withNotes = materias.filter(m => m.nota !== null && m.nota !== undefined && !isNaN(m.nota));
-    if (!withNotes.length) return null;
-    return (withNotes.reduce((s, m) => s + parseFloat(m.nota), 0) / withNotes.length).toFixed(2);
+  const withNotes = materias.filter(m => m.nota !== null && m.nota !== undefined && !isNaN(m.nota));
+  if (!withNotes.length) return null;
+  return (withNotes.reduce((s, m) => s + parseFloat(m.nota), 0) / withNotes.length).toFixed(2);
 }
 
 function notaColor(nota) {
-    if (nota === null || nota === undefined) return '#888';
-    if (nota < 3.0) return '#dc2626';
-    if (nota < 3.5) return '#f59e0b';
-    return '#16a34a';
+  if (nota === null || nota === undefined) return '#888';
+  if (nota < 3.0) return '#dc2626';
+  if (nota < 3.5) return '#f59e0b';
+  return '#16a34a';
 }
 
 async function generateStudentPDF(studentData) {
-    const { nombre, programa, materias } = studentData;
-    const promedio = calcPromedio(materias);
-    const fecha = new Date().toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' });
+  const { nombre, programa, materias } = studentData;
+  const promedio = calcPromedio(materias);
+  const fecha = new Date().toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' });
 
-    const materiasRows = materias.map(m => `
+  const materiasRows = materias.map(m => `
     <tr>
       <td>${m.materia}</td>
       <td>${m.docente}</td>
@@ -36,28 +36,28 @@ async function generateStudentPDF(studentData) {
     </tr>
   `).join('');
 
-    const html = `<!DOCTYPE html>
+  const html = `<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'Georgia', serif; background: #fff; color: #222; padding: 40px; }
-  .header { display: flex; align-items: center; border-bottom: 3px solid ${EXTERNADO_RED}; padding-bottom: 20px; margin-bottom: 30px; }
+  .header { display: flex; align-items: center; border-bottom: 3px solid ${EXTERNADO_GREEN}; padding-bottom: 20px; margin-bottom: 30px; }
   .logo-area { flex: 1; }
-  .logo-text { font-size: 28px; font-weight: bold; color: ${EXTERNADO_RED}; line-height: 1.2; }
+  .logo-text { font-size: 28px; font-weight: bold; color: ${EXTERNADO_GREEN}; line-height: 1.2; }
   .logo-sub { font-size: 13px; color: #555; margin-top: 4px; }
   .doc-title { text-align: right; }
-  .doc-title h1 { font-size: 18px; color: ${EXTERNADO_RED}; }
+  .doc-title h1 { font-size: 18px; color: ${EXTERNADO_GREEN}; }
   .doc-title p { font-size: 12px; color: #666; margin-top: 4px; }
-  .student-info { background: #f9f0f0; border-left: 4px solid ${EXTERNADO_RED}; padding: 16px 20px; margin-bottom: 28px; border-radius: 0 8px 8px 0; }
+  .student-info { background: #f9f0f0; border-left: 4px solid ${EXTERNADO_GREEN}; padding: 16px 20px; margin-bottom: 28px; border-radius: 0 8px 8px 0; }
   .student-info h2 { font-size: 20px; color: ${EXTERNADO_DARK}; }
   .student-info p { font-size: 13px; color: #555; margin-top: 6px; }
   table { width: 100%; border-collapse: collapse; margin-bottom: 28px; }
-  th { background: ${EXTERNADO_RED}; color: white; padding: 12px 14px; text-align: left; font-size: 13px; }
+  th { background: ${EXTERNADO_GREEN}; color: white; padding: 12px 14px; text-align: left; font-size: 13px; }
   td { padding: 10px 14px; border-bottom: 1px solid #eee; font-size: 13px; }
   tr:nth-child(even) td { background: #fafafa; }
-  .promedio-box { background: ${EXTERNADO_RED}; color: white; padding: 20px 28px; border-radius: 10px; display: inline-block; margin-bottom: 28px; }
+  .promedio-box { background: ${EXTERNADO_GREEN}; color: white; padding: 20px 28px; border-radius: 10px; display: inline-block; margin-bottom: 28px; }
   .promedio-box .label { font-size: 13px; opacity: 0.85; }
   .promedio-box .value { font-size: 36px; font-weight: bold; }
   .footer { border-top: 1px solid #ddd; padding-top: 16px; font-size: 11px; color: #888; text-align: center; }
@@ -74,7 +74,7 @@ async function generateStudentPDF(studentData) {
     <div class="doc-title">
       <h1>REPORTE ACADÉMICO</h1>
       <p>Documento oficial de calificaciones</p>
-      <p style="margin-top:8px;color:${EXTERNADO_RED};font-weight:bold">Propulsor Journey</p>
+      <p style="margin-top:8px;color:${EXTERNADO_GREEN};font-weight:bold">Propulsor Journey</p>
     </div>
   </div>
 
@@ -84,7 +84,7 @@ async function generateStudentPDF(studentData) {
     <p><strong>Fecha de generación:</strong> ${fecha}</p>
   </div>
 
-  <h3 style="color:${EXTERNADO_RED};margin-bottom:14px;font-size:15px">REGISTRO DE CALIFICACIONES</h3>
+  <h3 style="color:${EXTERNADO_GREEN};margin-bottom:14px;font-size:15px">REGISTRO DE CALIFICACIONES</h3>
   <table>
     <thead>
       <tr><th>Materia</th><th>Docente</th><th style="text-align:center">Nota</th><th style="text-align:center">Estado</th></tr>
@@ -109,32 +109,32 @@ async function generateStudentPDF(studentData) {
 </body>
 </html>`;
 
-    return await htmlToPDF(html);
+  return await htmlToPDF(html);
 }
 
 async function generateTeacherEvaluationPDF(teacherData, evaluations, questions) {
-    const { nombre, programas } = teacherData;
-    const fecha = new Date().toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' });
-    const totalEvals = evaluations.length;
+  const { nombre, programas } = teacherData;
+  const fecha = new Date().toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' });
+  const totalEvals = evaluations.length;
 
-    // Calculate averages per question
-    const questionAverages = questions.map(q => {
-        const answers = evaluations.map(e => {
-            const ans = e.answers.find(a => a.questionId == q.id);
-            return ans ? parseFloat(ans.value) : null;
-        }).filter(v => v !== null);
-        const avg = answers.length ? (answers.reduce((s, v) => s + v, 0) / answers.length).toFixed(2) : 'N/A';
-        return { pregunta: q.pregunta, avg, count: answers.length };
-    });
+  // Calculate averages per question
+  const questionAverages = questions.map(q => {
+    const answers = evaluations.map(e => {
+      const ans = e.answers.find(a => a.questionId == q.id);
+      return ans ? parseFloat(ans.value) : null;
+    }).filter(v => v !== null);
+    const avg = answers.length ? (answers.reduce((s, v) => s + v, 0) / answers.length).toFixed(2) : 'N/A';
+    return { pregunta: q.pregunta, avg, count: answers.length };
+  });
 
-    const overallAvg = questionAverages.filter(q => q.avg !== 'N/A').length
-        ? (questionAverages.filter(q => q.avg !== 'N/A').reduce((s, q) => s + parseFloat(q.avg), 0) / questionAverages.filter(q => q.avg !== 'N/A').length).toFixed(2)
-        : 'N/A';
+  const overallAvg = questionAverages.filter(q => q.avg !== 'N/A').length
+    ? (questionAverages.filter(q => q.avg !== 'N/A').reduce((s, q) => s + parseFloat(q.avg), 0) / questionAverages.filter(q => q.avg !== 'N/A').length).toFixed(2)
+    : 'N/A';
 
-    const barsHtml = questionAverages.map((q, i) => {
-        const pct = q.avg !== 'N/A' ? (parseFloat(q.avg) / 5 * 100).toFixed(0) : 0;
-        const color = parseFloat(q.avg) >= 4 ? '#16a34a' : parseFloat(q.avg) >= 3 ? '#f59e0b' : '#dc2626';
-        return `
+  const barsHtml = questionAverages.map((q, i) => {
+    const pct = q.avg !== 'N/A' ? (parseFloat(q.avg) / 5 * 100).toFixed(0) : 0;
+    const color = parseFloat(q.avg) >= 4 ? '#16a34a' : parseFloat(q.avg) >= 3 ? '#f59e0b' : '#dc2626';
+    return `
       <div style="margin-bottom:14px">
         <div style="font-size:12px;color:#444;margin-bottom:4px">${i + 1}. ${q.pregunta}</div>
         <div style="display:flex;align-items:center;gap:10px">
@@ -144,25 +144,25 @@ async function generateTeacherEvaluationPDF(teacherData, evaluations, questions)
           <span style="font-weight:bold;color:${color};min-width:35px;font-size:13px">${q.avg}</span>
         </div>
       </div>`;
-    }).join('');
+  }).join('');
 
-    const html = `<!DOCTYPE html>
+  const html = `<!DOCTYPE html>
 <html lang="es">
 <head><meta charset="UTF-8">
 <style>
   * { margin:0;padding:0;box-sizing:border-box; }
   body { font-family:'Georgia',serif;background:#fff;color:#222;padding:40px; }
-  .header { display:flex;align-items:center;border-bottom:3px solid ${EXTERNADO_RED};padding-bottom:20px;margin-bottom:30px; }
-  .logo-text { font-size:26px;font-weight:bold;color:${EXTERNADO_RED};line-height:1.2; }
+  .header { display:flex;align-items:center;border-bottom:3px solid ${EXTERNADO_GREEN};padding-bottom:20px;margin-bottom:30px; }
+  .logo-text { font-size:26px;font-weight:bold;color:${EXTERNADO_GREEN};line-height:1.2; }
   .logo-sub { font-size:12px;color:#555;margin-top:4px; }
   .doc-title { text-align:right;flex:1; }
-  .doc-title h1 { font-size:17px;color:${EXTERNADO_RED}; }
-  .info-box { background:#f9f0f0;border-left:4px solid ${EXTERNADO_RED};padding:16px 20px;margin-bottom:28px;border-radius:0 8px 8px 0; }
+  .doc-title h1 { font-size:17px;color:${EXTERNADO_GREEN}; }
+  .info-box { background:#f9f0f0;border-left:4px solid ${EXTERNADO_GREEN};padding:16px 20px;margin-bottom:28px;border-radius:0 8px 8px 0; }
   .kpi-row { display:flex;gap:16px;margin-bottom:28px; }
-  .kpi { flex:1;background:${EXTERNADO_RED};color:white;padding:16px;border-radius:10px;text-align:center; }
+  .kpi { flex:1;background:${EXTERNADO_GREEN};color:white;padding:16px;border-radius:10px;text-align:center; }
   .kpi .val { font-size:32px;font-weight:bold; }
   .kpi .lbl { font-size:11px;opacity:0.85;margin-top:4px; }
-  h3 { color:${EXTERNADO_RED};margin-bottom:16px;font-size:15px; }
+  h3 { color:${EXTERNADO_GREEN};margin-bottom:16px;font-size:15px; }
   .footer { border-top:1px solid #ddd;padding-top:16px;font-size:11px;color:#888;text-align:center;margin-top:30px; }
 </style>
 </head>
@@ -199,13 +199,13 @@ async function generateTeacherEvaluationPDF(teacherData, evaluations, questions)
 </body>
 </html>`;
 
-    return await htmlToPDF(html);
+  return await htmlToPDF(html);
 }
 
 async function generateAdminReportPDF(stats) {
-    const fecha = new Date().toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' });
+  const fecha = new Date().toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' });
 
-    const programRows = Object.entries(stats.byProgram).map(([prog, d]) => `
+  const programRows = Object.entries(stats.byProgram).map(([prog, d]) => `
     <tr>
       <td>${prog}</td>
       <td style="text-align:center">${d.count}</td>
@@ -213,26 +213,26 @@ async function generateAdminReportPDF(stats) {
     </tr>
   `).join('');
 
-    const html = `<!DOCTYPE html>
+  const html = `<!DOCTYPE html>
 <html lang="es">
 <head><meta charset="UTF-8">
 <style>
   * { margin:0;padding:0;box-sizing:border-box; }
   body { font-family:'Georgia',serif;background:#fff;color:#222;padding:40px; }
-  .header { display:flex;align-items:center;border-bottom:3px solid ${EXTERNADO_RED};padding-bottom:20px;margin-bottom:30px; }
-  .logo-text { font-size:26px;font-weight:bold;color:${EXTERNADO_RED};line-height:1.2; }
+  .header { display:flex;align-items:center;border-bottom:3px solid ${EXTERNADO_GREEN};padding-bottom:20px;margin-bottom:30px; }
+  .logo-text { font-size:26px;font-weight:bold;color:${EXTERNADO_GREEN};line-height:1.2; }
   .logo-sub { font-size:12px;color:#555;margin-top:4px; }
   .doc-title { text-align:right;flex:1; }
   .kpi-grid { display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:30px; }
-  .kpi { background:${EXTERNADO_RED};color:white;padding:18px;border-radius:10px;text-align:center; }
+  .kpi { background:${EXTERNADO_GREEN};color:white;padding:18px;border-radius:10px;text-align:center; }
   .kpi .val { font-size:30px;font-weight:bold; }
   .kpi .lbl { font-size:11px;opacity:0.85;margin-top:4px; }
-  h3 { color:${EXTERNADO_RED};margin-bottom:14px;font-size:15px;margin-top:24px; }
+  h3 { color:${EXTERNADO_GREEN};margin-bottom:14px;font-size:15px;margin-top:24px; }
   table { width:100%;border-collapse:collapse;margin-bottom:20px; }
-  th { background:${EXTERNADO_RED};color:white;padding:10px 14px;text-align:left;font-size:13px; }
+  th { background:${EXTERNADO_GREEN};color:white;padding:10px 14px;text-align:left;font-size:13px; }
   td { padding:9px 14px;border-bottom:1px solid #eee;font-size:13px; }
   tr:nth-child(even) td { background:#fafafa; }
-  .highlight { background:#f9f0f0;border-left:4px solid ${EXTERNADO_RED};padding:12px 16px;border-radius:0 8px 8px 0;margin-bottom:12px; }
+  .highlight { background:#f9f0f0;border-left:4px solid ${EXTERNADO_GREEN};padding:12px 16px;border-radius:0 8px 8px 0;margin-bottom:12px; }
   .footer { border-top:1px solid #ddd;padding-top:16px;font-size:11px;color:#888;text-align:center;margin-top:30px; }
 </style>
 </head>
@@ -243,7 +243,7 @@ async function generateAdminReportPDF(stats) {
       <div class="logo-sub">Fundada en 1886 · Bogotá, Colombia</div>
     </div>
     <div class="doc-title">
-      <h1 style="font-size:17px;color:${EXTERNADO_RED}">INFORME GENERAL ESTADÍSTICO</h1>
+      <h1 style="font-size:17px;color:${EXTERNADO_GREEN}">INFORME GENERAL ESTADÍSTICO</h1>
       <p style="font-size:12px;color:#666">Propulsor Journey · ${fecha}</p>
     </div>
   </div>
@@ -274,23 +274,30 @@ async function generateAdminReportPDF(stats) {
 </body>
 </html>`;
 
-    return await htmlToPDF(html);
+  return await htmlToPDF(html);
 }
 
 async function htmlToPDF(html) {
-    const browser = await puppeteer.launch({
-        headless: 'new',
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
-    const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: 'networkidle0' });
-    const pdf = await page.pdf({
-        format: 'A4',
-        margin: { top: '0', right: '0', bottom: '0', left: '0' },
-        printBackground: true
-    });
-    await browser.close();
-    return pdf;
+  const isProduction = process.env.NODE_ENV === 'production';
+  const browser = await puppeteer.launch({
+    headless: 'new',
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu'
+    ],
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || null
+  });
+  const page = await browser.newPage();
+  await page.setContent(html, { waitUntil: 'networkidle0' });
+  const pdf = await page.pdf({
+    format: 'A4',
+    margin: { top: '0', right: '0', bottom: '0', left: '0' },
+    printBackground: true
+  });
+  await browser.close();
+  return pdf;
 }
 
 module.exports = { generateStudentPDF, generateTeacherEvaluationPDF, generateAdminReportPDF };

@@ -181,10 +181,41 @@ router.get('/admin/stats', requireAuth, requireRole('administrativo'), (req, res
 
 router.get('/admin/users', requireAuth, requireRole('administrativo'), (req, res) => {
     const data = getData();
+    const allAttendance = dataStore.getAllAttendance();
+
+    // Map students with their attendance stats
+    const students = Object.entries(data.students).map(([username, s]) => {
+        const studentAttendance = {};
+        let totalFallas = 0;
+
+        // Count absences across all teachers for this student
+        Object.keys(allAttendance).forEach(teacherUser => {
+            if (allAttendance[teacherUser][username] === 'ausente') {
+                totalFallas++;
+            }
+        });
+
+        return {
+            username,
+            ...s,
+            attendanceStats: {
+                totalFallas,
+                isForgiven: dataStore.getAttendanceOverride(username)
+            }
+        };
+    });
+
     res.json({
-        students: Object.entries(data.students).map(([username, s]) => ({ username, ...s })),
+        students,
         teachers: Object.entries(data.teachers).map(([username, t]) => ({ username, ...t }))
     });
+});
+
+router.post('/admin/override-attendance', requireAuth, requireRole('administrativo'), (req, res) => {
+    const { studentUser, status } = req.body;
+    if (!studentUser) return res.status(400).json({ error: 'Usuario requerido' });
+    dataStore.setAttendanceOverride(studentUser, status);
+    res.json({ success: true, message: `Estado de asistencia para ${studentUser} actualizado` });
 });
 
 router.get('/admin/teacher-evaluations/:teacherUser', requireAuth, requireRole('administrativo'), (req, res) => {
@@ -244,6 +275,54 @@ router.post('/admin/upload', requireAuth, requireRole('administrativo'), upload.
     } catch (e) {
         res.status(500).json({ error: 'Error al procesar el Excel: ' + e.message });
     }
+});
+
+router.post('/admin/override-grade', requireAuth, requireRole('administrativo'), (req, res) => {
+    const { studentUser, materia, nota } = req.body;
+    if (!studentUser || !materia || nota === undefined) {
+        return res.status(400).json({ error: 'Datos incompletos' });
+    }
+    dataStore.setNote(studentUser, materia, parseFloat(nota));
+    res.json({ success: true, message: `Nota de ${materia} para ${studentUser} actualizada a ${nota}` });
+});
+
+router.get('/admin/export-excel', requireAuth, requireRole('administrativo'), (req, res) => {
+    const data = getData();
+    const XLSX = require('xlsx');
+
+    const wb = XLSX.utils.book_new();
+
+    // Students sheet
+    const studentRows = [];
+    Object.entries(data.students).forEach(([user, s]) => {
+        s.materias.forEach(m => {
+            studentRows.push({
+                'Usuario': user,
+                'Nombre': s.nombre,
+                'Programa': s.programa,
+                'Materia': m.materia,
+                'Docente': m.docente,
+                'Nota': m.nota !== null ? parseFloat(m.nota) : 'Sin nota'
+            });
+        });
+    });
+    const wsStudents = XLSX.utils.json_to_sheet(studentRows);
+    XLSX.utils.book_append_sheet(wb, wsStudents, "Notas Estudiantes");
+
+    // Teacher sheet
+    const teacherRows = Object.entries(data.teachers).map(([user, t]) => ({
+        'Usuario': user,
+        'Nombre': t.nombre,
+        'Programas': t.programas.join(', '),
+        'Total Estudiantes': t.estudiantes ? t.estudiantes.length : 0
+    }));
+    const wsTeachers = XLSX.utils.json_to_sheet(teacherRows);
+    XLSX.utils.book_append_sheet(wb, wsTeachers, "Docentes");
+
+    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="consolidado-notas-propulsor.xlsx"');
+    res.send(buffer);
 });
 
 // ── PDF endpoints ─────────────────────────────────────────────────────────────

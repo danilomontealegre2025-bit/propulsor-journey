@@ -1,0 +1,10 @@
+{
+  "attendance": {},
+  "attendanceOverrides": {
+    "est06": true,
+    "est12": true
+  },
+  "evaluations": {},
+  "notes": {},
+  "excelPath": null
+}

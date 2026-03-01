@@ -15,12 +15,12 @@
     <div class="app-layout">
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-logo">
-                <img src="/assets/logo-propulsor.svg" alt="Propulsor Journey">
+                <img src="/assets/propulsor-banner.png" alt="Propulsor Journey" style="width:100%; opacity:0.9">
             </div>
             <div class="sidebar-user">
                 <div class="user-avatar" id="userAvatar">D</div>
                 <div class="user-name" id="userName">Cargando...</div>
-                <div class="user-role">Docente</div>
+                <div class="user-role teacher">Docente</div>
             </div>
             <nav class="sidebar-nav">
                 <div class="nav-section-title">Principal</div>
@@ -51,7 +51,8 @@
                 <div class="welcome-banner">
                     <div class="welcome-greeting">Panel Docente</div>
                     <div class="welcome-name" id="welcomeName">Docente</div>
-                    <div class="welcome-program" id="welcomePrograms">Cargando...</div>
+                    <div class="program-tag-list" id="welcomePrograms" style="margin-top:8px; justify-content:center">
+                    </div>
                 </div>
 
                 <div class="kpi-grid">
@@ -85,6 +86,11 @@
                     </div>
                 </div>
 
+                <div class="search-container">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" class="search-input" id="searchStudents"
+                        placeholder="Buscar estudiante por nombre o programa..." onkeyup="filterStudents()">
+                </div>
                 <div class="card">
                     <div class="card-header">
                         <div class="card-title">📋 Lista de Estudiantes y Asistencia</div>
@@ -156,6 +162,7 @@
         let teacherData = null;
         let evalData = null;
         let evalChart = null;
+        let filteredStudents = [];
 
         async function init() {
             try {
@@ -181,7 +188,11 @@
             teacherData = await res.json();
 
             document.getElementById('welcomeName').textContent = teacherData.nombre;
-            document.getElementById('welcomePrograms').textContent = teacherData.programas.join(' · ');
+            const tagClasses = ['tag-blue', 'tag-green', 'tag-purple', 'tag-orange', 'tag-pink', 'tag-indigo'];
+            document.getElementById('welcomePrograms').innerHTML = teacherData.programas.map((p, i) => {
+                const tagClass = tagClasses[i % tagClasses.length];
+                return `<span class="program-tag ${tagClass}">${p}</span>`;
+            }).join('');
             document.getElementById('programasLabel').textContent = teacherData.programas.join(', ');
 
             const presentes = teacherData.estudiantes.filter(s => s.attendance === 'presente').length;
@@ -189,16 +200,17 @@
             document.getElementById('kpiPresentes').textContent = presentes;
             document.getElementById('kpiPrograms').textContent = teacherData.programas.length;
 
-            renderStudentsTable();
+            filteredStudents = [...teacherData.estudiantes];
+            renderStudentsTable(filteredStudents);
         }
 
-        function renderStudentsTable() {
+        function renderStudentsTable(students) {
             const tbody = document.getElementById('studentsTableBody');
-            if (!teacherData.estudiantes.length) {
+            if (!students.length) {
                 tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:32px;color:var(--gray-400)">No hay estudiantes asignados</td></tr>';
                 return;
             }
-            tbody.innerHTML = teacherData.estudiantes.map(s => {
+            tbody.innerHTML = students.map(s => {
                 // Find note for this teacher's subject if available
                 // For simplicity, we assume the teacher is grading their primary assigned students from Excel
                 // In a real app, we'd map this to a specific subject.
@@ -225,6 +237,16 @@
         </tr>
       `;
             }).join('');
+        }
+
+        function filterStudents() {
+            const query = document.getElementById('searchStudents').value.toLowerCase();
+            filteredStudents = teacherData.estudiantes.filter(s =>
+                s.nombre.toLowerCase().includes(query) ||
+                s.programa.toLowerCase().includes(query) ||
+                s.usuario.toLowerCase().includes(query)
+            );
+            renderStudentsTable(filteredStudents);
         }
 
         async function updateGrade(studentUser, nota) {

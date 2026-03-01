@@ -15,12 +15,12 @@
     <div class="app-layout">
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-logo">
-                <img src="/assets/logo-propulsor.svg" alt="Propulsor Journey">
+                <img src="/assets/propulsor-banner.png" alt="Propulsor Journey" style="width:100%; opacity:0.9">
             </div>
             <div class="sidebar-user">
                 <div class="user-avatar" id="userAvatar">A</div>
                 <div class="user-name" id="userName">Administrador</div>
-                <div class="user-role">Administrativo</div>
+                <div class="user-role admin">Administrativo</div>
             </div>
             <nav class="sidebar-nav">
                 <div class="nav-section-title">Estadísticas</div>
@@ -176,6 +176,15 @@
                     <div class="page-title">👥 Listado de Estudiantes</div>
                     <div class="page-subtitle" id="totalStudentsSub">Cargando...</div>
                 </div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                    <div class="search-container" style="flex:1; margin-bottom:0;">
+                        <span class="search-icon">🔍</span>
+                        <input type="text" class="search-input" id="searchStudents"
+                            placeholder="Buscar estudiante por nombre o usuario..." onkeyup="filterStudents()">
+                    </div>
+                    <button class="btn btn-success" onclick="exportToExcel()" style="margin-left:12px">📊 Exportar
+                        Excel</button>
+                </div>
                 <div class="card">
                     <div class="table-container">
                         <table>
@@ -184,13 +193,15 @@
                                     <th>Usuario</th>
                                     <th>Nombre</th>
                                     <th>Programa</th>
-                                    <th>Promedio</th>
+                                    <th style="text-align:center">Fallas</th>
+                                    <th style="text-align:center">Promedio</th>
+                                    <th style="text-align:center">Estado</th>
                                     <th style="text-align:right">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody id="adminStudentsTable">
                                 <tr>
-                                    <td colspan="5" style="text-align:center;padding:32px">Cargando...</td>
+                                    <td colspan="7" style="text-align:center;padding:32px">Cargando...</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -203,6 +214,11 @@
                 <div class="page-header">
                     <div class="page-title">👩‍🏫 Listado de Docentes</div>
                     <div class="page-subtitle" id="totalTeachersSub">Cargando...</div>
+                </div>
+                <div class="search-container">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" class="search-input" id="searchTeachers"
+                        placeholder="Buscar docente por nombre, usuario o programa..." onkeyup="filterTeachers()">
                 </div>
                 <div class="card">
                     <div class="table-container">
@@ -256,24 +272,28 @@
                     <div class="page-subtitle">Administra los datos del sistema académico</div>
                 </div>
 
-                <!-- Upload Excel -->
-                <div class="card" style="margin-bottom:20px">
-                    <div class="card-header">
-                        <div class="card-title">📂 Cargar Nuevo Excel</div>
+                <div class="card"
+                    style="margin-bottom:20px; border: 2px dashed var(--green-inst-border); background: #f0f7f4;">
+                    <div class="card-header" style="background: transparent">
+                        <div class="card-title">🚀 Portal de Carga Masiva (Excel)</div>
                     </div>
-                    <div class="card-body">
-                        <p style="font-size:14px;color:var(--gray-600);margin-bottom:16px">
-                            Sube un nuevo archivo Excel para actualizar todos los datos del sistema. Esto reiniciará los
-                            datos actuales.
+                    <div class="card-body" style="text-align:center; padding: 40px 20px;">
+                        <div style="font-size: 48px; margin-bottom: 16px;">📊</div>
+                        <h3 style="margin-bottom: 10px; color: var(--green-inst-dark)">Actualizar Base de Datos</h3>
+                        <p
+                            style="font-size:14px;color:var(--gray-600);margin-bottom:24px; max-width: 500px; margin-left: auto; margin-right: auto;">
+                            Selecciona el archivo maestro de Excel para actualizar estudiantes, docentes y programas.
+                            <strong>Nota:</strong> Esta acción sobrescribirá los datos actuales.
                         </p>
-                        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+                        <div style="display:flex;gap:12px;justify-content:center;align-items:center;flex-wrap:wrap">
                             <input type="file" id="excelFile" accept=".xlsx,.xls" style="display:none"
                                 onchange="uploadExcel()">
-                            <button class="btn btn-primary" onclick="document.getElementById('excelFile').click()">
-                                📂 Seleccionar Archivo Excel
+                            <button class="btn btn-primary btn-lg"
+                                onclick="document.getElementById('excelFile').click()">
+                                📁 Seleccionar y Cargar Excel
                             </button>
-                            <span id="uploadStatus" style="font-size:13px;color:var(--gray-500)"></span>
                         </div>
+                        <div id="uploadStatus" style="margin-top:16px; font-weight: 600;"></div>
                     </div>
                 </div>
 
@@ -346,6 +366,8 @@
         let statsData = null;
         let programChart = null;
         let subjectChart = null;
+        let allStudents = [];
+        let allTeachers = [];
 
         async function init() {
             try {
@@ -370,39 +392,153 @@
             if (!res.ok) return;
             const data = await res.json();
 
-            // Render Students
+            allStudents = data.students;
+            allTeachers = data.teachers;
+            renderStudentsTable(allStudents);
+            renderTeachersTable(allTeachers);
+        }
+
+        function renderStudentsTable(students) {
             const studentTable = document.getElementById('adminStudentsTable');
-            document.getElementById('totalStudentsSub').textContent = `${data.students.length} estudiantes registrados`;
-            studentTable.innerHTML = data.students.map(s => {
+            studentTable.innerHTML = students.map(s => {
                 const results = calculateStudentAvg(s);
+                const fallas = s.attendanceStats ? s.attendanceStats.totalFallas : 0;
+                const isForgiven = s.attendanceStats ? s.attendanceStats.isForgiven : false;
+
+                const avgNum = results.avg !== null ? parseFloat(results.avg) : 0;
+                const isFailingByGrades = results.avg !== null && avgNum < 3.0;
+                const isFailingByAttendance = fallas > 0 && !isForgiven;
+                const isReprobated = isFailingByGrades || isFailingByAttendance;
+
+                let statusBadge = '<span class="badge badge-success">Aprobado</span>';
+                if (isFailingByGrades && isFailingByAttendance) {
+                    statusBadge = '<span class="badge badge-danger">Reprobado (Notas/Fallas)</span>';
+                } else if (isFailingByGrades) {
+                    statusBadge = '<span class="badge badge-warning">Reprobado (Notas)</span>';
+                } else if (isFailingByAttendance) {
+                    statusBadge = '<span class="badge badge-danger">Reprobado (Fallas)</span>';
+                }
+
                 return `
                     <tr>
                         <td><code>${s.username}</code></td>
                         <td><strong>${s.nombre}</strong></td>
-                        <td><span class="badge badge-red">${s.programa}</span></td>
-                        <td><strong style="color:${results.avg >= 3.0 ? 'var(--green)' : 'var(--red)'}">${results.avg || 'N/A'}</strong></td>
+                        <td><span class="badge badge-gray">${s.programa}</span></td>
+                        <td style="text-align:center">
+                            <span class="badge ${fallas > 0 ? (isForgiven ? 'badge-info' : 'badge-red') : 'badge-gray'}">
+                                ${fallas} ${isForgiven ? '(Perdonadas)' : ''}
+                            </span>
+                        </td>
+                        <td style="text-align:center"><strong style="color:${avgNum >= 3.0 ? 'var(--green-inst)' : 'var(--red)'}">${results.avg || 'N/A'}</strong></td>
+                        <td style="text-align:center">${statusBadge}</td>
                         <td style="text-align:right">
+                            ${isFailingByAttendance ? `<button class="btn btn-success btn-sm" onclick="pardonAttendance('${s.username}')" title="Aprobar por Fallas">✅ Aprobar Fallas</button>` : ''}
+                            ${isFailingByGrades ? `<button class="btn btn-warning btn-sm" onclick="overrideStudentGrade('${s.username}')" title="Aprobar por Notas">📝 Ajustar Notas</button>` : ''}
                             <button class="btn btn-secondary btn-sm" onclick="downloadStudentPDF('${s.username}')">📄 PDF</button>
                         </td>
                     </tr>
                 `;
-            }).join('');
+            }).join('') || '<tr><td colspan="7" style="text-align:center;padding:32px">No se encontraron estudiantes</td></tr>';
+        }
 
-            // Render Teachers
-            const teacherTable = document.getElementById('adminTeachersTable');
-            document.getElementById('totalTeachersSub').textContent = `${data.teachers.length} docentes registrados`;
-            teacherTable.innerHTML = data.teachers.map(t => `
+        async function overrideStudentGrade(username) {
+            const student = allStudents.find(s => s.username === username);
+            if (!student) return;
+
+            // Find reprobate materias
+            const reprobates = student.materias.filter(m => m.nota !== null && parseFloat(m.nota) < 3.0);
+            if (!reprobates.length) return showToast('El estudiante no tiene materias reprobadas con nota registrada', 'info');
+
+            if (!confirm(`¿Deseas aprobar manualmente las ${reprobates.length} materias reprobadas de ${student.nombre} con nota 3.0?`)) return;
+
+            showToast('⏳ Aplicando cambios...', 'info');
+            try {
+                for (const m of reprobates) {
+                    await fetch('/api/admin/override-grade', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ studentUser: username, materia: m.materia, nota: 3.0 })
+                    });
+                }
+                showToast('✅ Estudiante aprobado correctamente', 'success');
+                await loadAdminUsers();
+                await loadStats();
+            } catch (e) {
+                showToast('Error al actualizar notas', 'error');
+            }
+        }
+
+        async function pardonAttendance(username) {
+            if (!confirm(`¿Deseas perdonar las inasistencias de ${username} para que pueda aprobar?`)) return;
+
+            showToast('⏳ Aplicando perdón...', 'info');
+            try {
+                const res = await fetch('/api/admin/override-attendance', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ studentUser: username, status: true })
+                });
+                if (res.ok) {
+                    showToast('✅ Asistencia aprobada', 'success');
+                    await loadAdminUsers();
+                }
+            } catch (e) {
+                showToast('Error al conectar con el servidor', 'error');
+            }
+        }
+
+        async function exportToExcel() {
+            showToast('⏳ Preparando Excel...', 'info');
+            window.location.href = '/api/admin/export-excel';
+        }
+
+        function renderTeachersTable(teachers) {
+            const table = document.getElementById('adminTeachersTable');
+            const tagClasses = ['tag-blue', 'tag-green', 'tag-purple', 'tag-orange', 'tag-pink', 'tag-indigo'];
+
+            table.innerHTML = teachers.map(t => {
+                // Sort programs alphabetically
+                const sortedPrograms = (t.programas || []).sort((a, b) => a.localeCompare(b));
+
+                const programsHtml = sortedPrograms.map((p, i) => {
+                    const tagClass = tagClasses[i % tagClasses.length];
+                    return `<span class="program-tag ${tagClass}">${p}</span>`;
+                }).join('');
+
+                return `
                 <tr>
                     <td><code>${t.username}</code></td>
-                    <td><strong>${t.nombre}</strong></td>
-                    <td>${t.programas.map(p => `<span class="badge badge-info" style="margin:2px">${p}</span>`).join('')}</td>
+                    <td><strong style="font-size:1.1em">${t.nombre}</strong></td>
+                    <td style="padding: 12px 14px">
+                        <div class="program-tag-list">${programsHtml}</div>
+                    </td>
                     <td style="text-align:center"><span class="badge badge-gray">${t.estudiantes ? t.estudiantes.length : 0}</span></td>
                     <td style="text-align:right">
                         <button class="btn btn-secondary btn-sm" onclick="viewEvaluations('${t.username}')">⭐ Eval</button>
                         <button class="btn btn-secondary btn-sm" onclick="showSection('teacher-view'); document.getElementById('teacherSelect').value='${t.username}'; loadTeacherView();">👁️ Ver</button>
                     </td>
-                </tr>
-            `).join('');
+                </tr>`;
+            }).join('') || '<tr><td colspan="5" style="text-align:center;padding:32px">No se encontraron docentes</td></tr>';
+        }
+
+        function filterStudents() {
+            const query = document.getElementById('searchStudents').value.toLowerCase();
+            const filtered = allStudents.filter(s =>
+                s.nombre.toLowerCase().includes(query) ||
+                s.username.toLowerCase().includes(query) ||
+                s.programa.toLowerCase().includes(query)
+            );
+            renderStudentsTable(filtered);
+        }
+
+        function filterTeachers() {
+            const query = document.getElementById('searchTeachers').value.toLowerCase();
+            const filtered = allTeachers.filter(t =>
+                t.nombre.toLowerCase().includes(query) ||
+                t.username.toLowerCase().includes(query) ||
+                (t.programas || []).some(p => p.toLowerCase().includes(query))
+            );
+            renderTeachersTable(filtered);
         }
 
         async function viewEvaluations(teacherUser) {
@@ -417,7 +553,7 @@
             const statsContainer = document.getElementById('modalQuestionStats');
             statsContainer.innerHTML = data.questionStats.map((q, i) => {
                 const pct = q.avg !== 'N/A' ? (parseFloat(q.avg) / 5 * 100).toFixed(0) : 0;
-                const color = parseFloat(q.avg) >= 4 ? 'var(--green)' : parseFloat(q.avg) >= 3 ? 'var(--yellow)' : 'var(--red)';
+                const color = parseFloat(q.avg) >= 4 ? 'var(--green-inst)' : parseFloat(q.avg) >= 3 ? 'var(--yellow)' : 'var(--red)';
                 return `
                     <div style="margin-bottom:15px">
                         <div style="font-size:13px; font-weight:600; margin-bottom:5px">${i + 1}. ${q.pregunta}</div>
@@ -488,16 +624,34 @@
         function renderProgramChart(programs) {
             const ctx = document.getElementById('programChart').getContext('2d');
             if (programChart) programChart.destroy();
-            const colors = ['#8B0000', '#b30000', '#d44', '#e66', '#f88', '#faa'];
+
+            // Sort programs by count for better visualization in bar chart
+            const sortedPrograms = [...programs].sort((a, b) => b[1].count - a[1].count);
+
             programChart = new Chart(ctx, {
-                type: 'doughnut',
+                type: 'bar',
                 data: {
-                    labels: programs.map(([p]) => p.length > 30 ? p.substring(0, 30) + '...' : p),
-                    datasets: [{ data: programs.map(([, d]) => d.count), backgroundColor: colors, borderWidth: 2, borderColor: '#fff' }]
+                    labels: sortedPrograms.map(([p]) => p.length > 25 ? p.substring(0, 25) + '...' : p),
+                    datasets: [{
+                        label: 'Estudiantes',
+                        data: sortedPrograms.map(([, d]) => d.count),
+                        backgroundColor: 'rgba(0, 75, 50, 0.8)',
+                        borderColor: '#004b32',
+                        borderWidth: 1,
+                        borderRadius: 4
+                    }]
                 },
                 options: {
-                    responsive: true, maintainAspectRatio: false,
-                    plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12 } } }
+                    indexAxis: 'y', // Horizontal bars
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: { grid: { color: '#f1f3f5' }, ticks: { stepSize: 1 } },
+                        y: { grid: { display: false } }
+                    }
                 }
             });
         }

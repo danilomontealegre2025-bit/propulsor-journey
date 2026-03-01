@@ -286,6 +286,7 @@ function reloadFromFile(filePath) {
 
 function clearCache() {
     cachedData = null;
+    console.log('Cache cleared, reloading academic data on next request...');
 }
 
 module.exports = { getData, parseExcel, reloadFromFile, clearCache, getDefaultData };

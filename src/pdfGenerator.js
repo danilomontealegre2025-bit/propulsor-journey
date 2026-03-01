@@ -278,7 +278,9 @@ async function generateAdminReportPDF(stats) {
 }
 
 async function htmlToPDF(html) {
-  const isProduction = process.env.NODE_ENV === 'production';
+  console.log('--- Iniciando generación de PDF ---');
+  console.log('Lanzando Puppeteer con path:', process.env.PUPPETEER_EXECUTABLE_PATH);
+
   const browser = await puppeteer.launch({
     headless: 'new',
     args: [
@@ -289,13 +291,19 @@ async function htmlToPDF(html) {
     ],
     executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || null
   });
+
+  console.log('Navegador lanzado correctamente');
   const page = await browser.newPage();
   await page.setContent(html, { waitUntil: 'networkidle0' });
+  console.log('Contenido HTML cargado');
+
   const pdf = await page.pdf({
     format: 'A4',
     margin: { top: '0', right: '0', bottom: '0', left: '0' },
     printBackground: true
   });
+
+  console.log('PDF generado exitosamente');
   await browser.close();
   return pdf;
 }

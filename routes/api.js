@@ -402,13 +402,19 @@ router.get('/pdf/student', requireAuth, requireRole('estudiante'), async (req, r
         const student = data.students[username];
         if (!student) return res.status(404).json({ error: 'Estudiante no encontrado' });
         const overrides = dataStore.getNoteOverrides(username);
+        const allAttendance = dataStore.getAllAttendance();
         const materias = student.materias.map(m => {
-            const attendance = dataStore.getAttendance(username, m.materia);
-            const present = Object.values(attendance).filter(v => v === true).length;
+            let presentCount = 0;
+            if (m.usuarioDocente && allAttendance[m.usuarioDocente] && allAttendance[m.usuarioDocente][m.materia]) {
+                const matAtt = allAttendance[m.usuarioDocente][m.materia];
+                Object.keys(matAtt).forEach(date => {
+                    if (matAtt[date][username] === 'presente') presentCount++;
+                });
+            }
             return {
                 ...m,
                 nota: overrides[m.materia] !== undefined ? overrides[m.materia] : m.nota,
-                attendance: { present }
+                attendance: { present: presentCount }
             };
         });
         const pdf = await pdfGen.generateStudentPDF({ ...student, materias });
@@ -486,13 +492,19 @@ router.get('/pdf/student/:username', requireAuth, requireRole('administrativo'),
         const student = data.students[username];
         if (!student) return res.status(404).json({ error: 'Estudiante no encontrado' });
         const overrides = dataStore.getNoteOverrides(username);
+        const allAttendance = dataStore.getAllAttendance();
         const materias = student.materias.map(m => {
-            const attendance = dataStore.getAttendance(username, m.materia);
-            const present = Object.values(attendance).filter(v => v === true).length;
+            let presentCount = 0;
+            if (m.usuarioDocente && allAttendance[m.usuarioDocente] && allAttendance[m.usuarioDocente][m.materia]) {
+                const matAtt = allAttendance[m.usuarioDocente][m.materia];
+                Object.keys(matAtt).forEach(date => {
+                    if (matAtt[date][username] === 'presente') presentCount++;
+                });
+            }
             return {
                 ...m,
                 nota: overrides[m.materia] !== undefined ? overrides[m.materia] : m.nota,
-                attendance: { present }
+                attendance: { present: presentCount }
             };
         });
         const pdf = await pdfGen.generateStudentPDF({ ...student, materias });

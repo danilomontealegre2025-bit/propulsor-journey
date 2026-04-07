@@ -386,7 +386,7 @@ async function htmlToPDF(html) {
 
   console.log('Navegador lanzado correctamente');
   const page = await browser.newPage();
-  await page.setContent(html, { waitUntil: 'networkidle0' });
+  await page.setContent(html, { waitUntil: 'networkidle2' });
   console.log('Contenido HTML cargado');
 
   const pdf = await page.pdf({

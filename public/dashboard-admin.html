@@ -192,6 +192,7 @@
                                 <tr>
                                     <th>Usuario</th>
                                     <th>Nombre</th>
+                                    <th>Materia(s) Calificada(s)</th>
                                     <th>Programa</th>
                                     <th style="text-align:center">Fallas</th>
                                     <th style="text-align:center">Promedio</th>
@@ -227,6 +228,7 @@
                                 <tr>
                                     <th>Usuario</th>
                                     <th>Nombre</th>
+                                    <th>Materias</th>
                                     <th>Programas</th>
                                     <th>Estudiantes</th>
                                     <th style="text-align:right">Acciones</th>
@@ -419,10 +421,16 @@
                     statusBadge = '<span class="badge badge-danger">Reprobado (Fallas)</span>';
                 }
 
+                const gradedMaterias = (s.materias || []).filter(m => m.nota !== null && !isNaN(m.nota)).map(m => m.materia);
+                const gradedHtml = gradedMaterias.map(m => `
+                    <div style="font-size:11px; color:var(--green-inst-dark); line-height:1.2; margin-bottom:2px">✓ ${m}</div>
+                `).join('') || '<div style="font-size:11px; color:var(--gray-400)">Sin calificar</div>';
+
                 return `
                     <tr>
                         <td><code>${s.username}</code></td>
                         <td><strong>${s.nombre}</strong></td>
+                        <td>${gradedHtml}</td>
                         <td><span class="badge badge-gray">${s.programa}</span></td>
                         <td style="text-align:center">
                             <span class="badge ${fallas > 0 ? (isForgiven ? 'badge-info' : 'badge-red') : 'badge-gray'}">
@@ -505,10 +513,17 @@
                     return `<span class="program-tag ${tagClass}">${p}</span>`;
                 }).join('');
 
+                const materialsHtml = (t.materias || []).map(m => `
+                    <span class="program-tag tag-indigo" style="font-size:10px; padding:2px 6px">${m}</span>
+                `).join('');
+
                 return `
                 <tr>
                     <td><code>${t.username}</code></td>
                     <td><strong style="font-size:1.1em">${t.nombre}</strong></td>
+                    <td style="max-width:200px">
+                        <div style="display:flex; flex-wrap:wrap; gap:4px">${materialsHtml}</div>
+                    </td>
                     <td style="padding: 12px 14px">
                         <div class="program-tag-list">${programsHtml}</div>
                     </td>

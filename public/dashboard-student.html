@@ -107,6 +107,7 @@
                                     <th>Materia</th>
                                     <th>Docente</th>
                                     <th>Nota</th>
+                                    <th>Asistencia</th>
                                     <th>Estado</th>
                                     <th>Progreso</th>
                                 </tr>
@@ -221,10 +222,18 @@
                 const pct = nota !== null ? Math.min(100, (nota / 5 * 100)).toFixed(0) : 0;
                 const barColor = nota === null ? '#ccc' : nota >= 3.5 ? '#16a34a' : nota >= 3.0 ? '#d97706' : '#dc2626';
                 const alertIcon = nota !== null && nota < 3.0 ? '⚠️ ' : '';
+                
+                const att = m.attendance || { percentage: 0, present: 0, total: 0 };
+                const attColor = att.percentage >= 80 ? '#16a34a' : att.percentage >= 60 ? '#d97706' : '#dc2626';
+
                 return `<tr>
           <td><strong>${alertIcon}${m.materia}</strong></td>
           <td>${m.docente}</td>
           <td><span class="grade-pill ${gradeClass}">${notaStr}</span></td>
+          <td>
+            <div style="font-size:13px; font-weight:600; color:${attColor}">${att.percentage}%</div>
+            <div style="font-size:10px; color:var(--gray-400)">${att.present}/${att.total} asistencias</div>
+          </td>
           <td><span class="badge ${badgeClass}">${badgeText}</span></td>
           <td style="min-width:120px">
             <div class="progress-bar">

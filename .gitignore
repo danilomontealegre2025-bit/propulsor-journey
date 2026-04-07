@@ -11,3 +11,5 @@ yarn-error.log*
 .vscode/
 *.swp
 *.log
+admin_users.json
+cookies.txt

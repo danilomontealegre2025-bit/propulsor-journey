@@ -38,7 +38,31 @@ router.get('/student/grades', requireAuth, requireRole('estudiante'), (req, res)
     const student = data.students[username];
     if (!student) return res.status(404).json({ error: 'Estudiante no encontrado' });
 
-    const materias = student.materias;
+    const allAttendance = dataStore.getAllAttendance();
+    const materias = student.materias.map(m => {
+        let totalSessions = (m.fechas || []).length;
+        let presentCount = 0;
+        let absentCount = 0;
+
+        if (m.usuarioDocente && allAttendance[m.usuarioDocente] && allAttendance[m.usuarioDocente][m.materia]) {
+            const matAtt = allAttendance[m.usuarioDocente][m.materia];
+            Object.keys(matAtt).forEach(date => {
+                const status = matAtt[date][username];
+                if (status === 'presente') presentCount++;
+                else if (status === 'ausente') absentCount++;
+            });
+        }
+
+        return {
+            ...m,
+            attendance: {
+                total: totalSessions,
+                present: presentCount,
+                absent: absentCount,
+                percentage: totalSessions > 0 ? ((presentCount / totalSessions) * 100).toFixed(0) : 0
+            }
+        };
+    });
 
     const withNotes = materias.filter(m => m.nota !== null && !isNaN(m.nota));
     const promedio = withNotes.length
@@ -80,18 +104,43 @@ router.get('/teacher/info', requireAuth, requireRole('docente'), (req, res) => {
     const username = req.session.user.username;
     const teacher = data.teachers[username];
     if (!teacher) return res.status(404).json({ error: 'Docente no encontrado' });
+    
     const attendance = dataStore.getAttendance(username);
-    const students = teacher.estudiantes.map(s => ({
-        ...s,
-        attendance: attendance[s.usuario] || 'sin_registro'
-    }));
-    res.json({ nombre: teacher.nombre, programas: teacher.programas, estudiantes: students, username });
+    
+    // Return materias with their dates and students
+    // Enrich students with their grades for this teacher's materias
+    const enrichedStudents = teacher.estudiantes.map(s => {
+        const studentData = data.students[s.usuario];
+        const studentNotes = {};
+        if (studentData && studentData.materias) {
+            studentData.materias.forEach(m => {
+                if (m.usuarioDocente === username) {
+                    studentNotes[m.materia] = m.nota;
+                }
+            });
+        }
+        return {
+            ...s,
+            notas: studentNotes
+        };
+    });
+
+    res.json({ 
+        nombre: teacher.nombre, 
+        materias: teacher.materias,
+        estudiantes: enrichedStudents,
+        attendance,
+        username 
+    });
 });
 
 router.post('/teacher/attendance', requireAuth, requireRole('docente'), (req, res) => {
-    const { studentUser, status } = req.body;
+    const { studentUser, materia, date, status } = req.body;
     const teacherUser = req.session.user.username;
-    dataStore.setAttendance(teacherUser, studentUser, status);
+    if (!studentUser || !materia || !date || !status) {
+        return res.status(400).json({ error: 'Faltan datos (studentUser, materia, date, status)' });
+    }
+    dataStore.setAttendance(teacherUser, materia, date, studentUser, status);
     res.json({ success: true });
 });
 
@@ -188,11 +237,17 @@ router.get('/admin/users', requireAuth, requireRole('administrativo'), (req, res
         const studentAttendance = {};
         let totalFallas = 0;
 
-        // Count absences across all teachers for this student
+        // Count absences across all teachers and materias for this student
         Object.keys(allAttendance).forEach(teacherUser => {
-            if (allAttendance[teacherUser][username] === 'ausente') {
-                totalFallas++;
-            }
+            const teacherMat = allAttendance[teacherUser];
+            Object.keys(teacherMat).forEach(materia => {
+                const matDates = teacherMat[materia];
+                Object.keys(matDates).forEach(date => {
+                    if (matDates[date][username] === 'ausente') {
+                        totalFallas++;
+                    }
+                });
+            });
         });
 
         return {
@@ -207,7 +262,11 @@ router.get('/admin/users', requireAuth, requireRole('administrativo'), (req, res
 
     res.json({
         students,
-        teachers: Object.entries(data.teachers).map(([username, t]) => ({ username, ...t }))
+        teachers: Object.entries(data.teachers).map(([username, t]) => ({ 
+            username, 
+            ...t,
+            materias: t.materias ? t.materias.map(m => m.materia) : []
+        }))
     });
 });
 
@@ -296,13 +355,23 @@ router.get('/admin/export-excel', requireAuth, requireRole('administrativo'), (r
     const studentRows = [];
     Object.entries(data.students).forEach(([user, s]) => {
         s.materias.forEach(m => {
+            const attendance = dataStore.getAttendance(user, m.materia) || {};
+            const present = Object.values(attendance).filter(v => v === true).length;
+            const absent = Object.values(attendance).filter(v => v === false).length;
+            const totalSessions = m.fechas ? m.fechas.length : 0;
+            const attendancePct = totalSessions > 0 ? Math.round((present / totalSessions) * 100) : 0;
+
             studentRows.push({
                 'Usuario': user,
                 'Nombre': s.nombre,
                 'Programa': s.programa,
                 'Materia': m.materia,
                 'Docente': m.docente,
-                'Nota': m.nota !== null ? parseFloat(m.nota) : 'Sin nota'
+                'Nota': m.nota !== null ? parseFloat(m.nota) : 'Sin nota',
+                'Asistencias': present,
+                'Fallas': absent,
+                'Total Sesiones': totalSessions,
+                '% Asistencia': attendancePct + '%'
             });
         });
     });
@@ -333,9 +402,15 @@ router.get('/pdf/student', requireAuth, requireRole('estudiante'), async (req, r
         const student = data.students[username];
         if (!student) return res.status(404).json({ error: 'Estudiante no encontrado' });
         const overrides = dataStore.getNoteOverrides(username);
-        const materias = student.materias.map(m => ({
-            ...m, nota: overrides[m.materia] !== undefined ? overrides[m.materia] : m.nota
-        }));
+        const materias = student.materias.map(m => {
+            const attendance = dataStore.getAttendance(username, m.materia);
+            const present = Object.values(attendance).filter(v => v === true).length;
+            return {
+                ...m,
+                nota: overrides[m.materia] !== undefined ? overrides[m.materia] : m.nota,
+                attendance: { present }
+            };
+        });
         const pdf = await pdfGen.generateStudentPDF({ ...student, materias });
         res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="reporte-${username}.pdf"` });
         res.send(pdf);
@@ -410,7 +485,17 @@ router.get('/pdf/student/:username', requireAuth, requireRole('administrativo'),
         const username = req.params.username;
         const student = data.students[username];
         if (!student) return res.status(404).json({ error: 'Estudiante no encontrado' });
-        const pdf = await pdfGen.generateStudentPDF(student);
+        const overrides = dataStore.getNoteOverrides(username);
+        const materias = student.materias.map(m => {
+            const attendance = dataStore.getAttendance(username, m.materia);
+            const present = Object.values(attendance).filter(v => v === true).length;
+            return {
+                ...m,
+                nota: overrides[m.materia] !== undefined ? overrides[m.materia] : m.nota,
+                attendance: { present }
+            };
+        });
+        const pdf = await pdfGen.generateStudentPDF({ ...student, materias });
         res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="reporte-${username}.pdf"` });
         res.send(pdf);
     } catch (e) {

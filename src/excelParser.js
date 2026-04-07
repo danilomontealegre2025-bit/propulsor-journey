@@ -5,6 +5,54 @@ const dataStore = require('./dataStore');
 
 let cachedData = null;
 
+const MONTH_MAP = {
+    'enero': '01', 'febrero': '02', 'marzo': '03', 'abril': '04', 'mayo': '05', 'junio': '06',
+    'julio': '07', 'agosto': '08', 'septiembre': '09', 'octubre': '10', 'noviembre': '11', 'diciembre': '12'
+};
+
+function parseClassDates(dateStr) {
+    if (!dateStr) return [];
+    const dates = [];
+    // Normalize string: "07, 08 de abril 2026 y 01 de mayo 2026"
+    // Split by blocks that end in a year or just commas
+    const parts = dateStr.split(/ y | y, |, /);
+    
+    let currentMonth = '';
+    let currentYear = '2026'; // Default to 2026 as per images
+
+    // We iterate backwards to catch month and year first
+    for (let i = parts.length - 1; i >= 0; i--) {
+        let p = parts[i].trim().toLowerCase();
+        if (!p) continue;
+
+        // Check for year
+        const yearMatch = p.match(/\b(202\d)\b/);
+        if (yearMatch) {
+            currentYear = yearMatch[1];
+            p = p.replace(currentYear, '').trim();
+        }
+
+        // Check for month
+        for (const [mName, mNum] of Object.entries(MONTH_MAP)) {
+            if (p.includes(mName)) {
+                currentMonth = mNum;
+                p = p.replace(mName, '').replace('de', '').trim();
+                break;
+            }
+        }
+
+        // Days can be multiple in one part: "07, 08"
+        const days = p.match(/\d+/g);
+        if (days && currentMonth && currentYear) {
+            days.forEach(d => {
+                const dayStr = d.padStart(2, '0');
+                dates.unshift(`${currentYear}-${currentMonth}-${dayStr}`);
+            });
+        }
+    }
+    return [...new Set(dates)].sort();
+}
+
 function applyOverrides(data) {
     if (!data || !data.students) return data;
 
@@ -32,229 +80,122 @@ function parseExcel(filePath) {
             teachers: {},
             programs: {},
             evaluationQuestions: [],
-            rawRows: []
+            rawRows: [] // Keep for compatibility
         };
 
-        // ── Main sheet (first sheet) ──────────────────────────────────────────────
-        const mainSheetName = workbook.SheetNames[0];
-        const mainSheet = workbook.Sheets[mainSheetName];
-        const rows = XLSX.utils.sheet_to_json(mainSheet, { defval: '' });
-        data.rawRows = rows;
-
-        rows.forEach(row => {
-            const programa = String(row['Programa'] || '').trim();
-            const estudianteNombre = String(row['Estudiante'] || '').trim();
-            const usuarioEst = String(row['Usuario estudiante'] || row['Usuario_estudiante'] || '').trim().toLowerCase();
-            const passEst = String(row['Contraseña estudiante'] || row['Contraseña_estudiante'] || row['Contrase?a estudiante'] || '').trim();
-            const docenteNombre = String(row['Docente'] || '').trim();
-            const usuarioDoc = String(row['Usuario Docente'] || row['Usuario_Docente'] || '').trim().toLowerCase();
-            const passDoc = String(row['Contraseña doc'] || row['Contraseña_doc'] || row['Contrase?a doc'] || '').trim();
-            const materia = String(row['Materia'] || '').trim();
-            const nota = row['Nota'] !== undefined ? parseFloat(row['Nota']) : null;
-
-            // Register student user
-            if (usuarioEst && !data.users[usuarioEst]) {
-                data.users[usuarioEst] = {
-                    username: usuarioEst,
-                    password: passEst,
+        // --- Estudiantes Sheet ---
+        const estSheet = workbook.Sheets['Estudiantes'];
+        if (estSheet) {
+            const rows = XLSX.utils.sheet_to_json(estSheet, { defval: '' });
+            rows.forEach(row => {
+                const user = String(row['Usuario'] || '').trim().toLowerCase();
+                if (!user) return;
+                
+                const studentData = {
+                    username: user,
+                    password: String(row['Contraseña'] || row['Password'] || '').trim(),
                     role: 'estudiante',
-                    nombre: estudianteNombre,
-                    programa: programa
+                    nombre: String(row['Estudiante'] || '').trim(),
+                    programa: String(row['Programa asignado'] || '').trim(),
+                    codigoPrograma: String(row['Código programa'] || '').trim(),
+                    correo: String(row['Correo'] || '').trim()
                 };
-            }
 
-            // Register teacher user
-            if (usuarioDoc && !data.users[usuarioDoc]) {
-                data.users[usuarioDoc] = {
-                    username: usuarioDoc,
-                    password: passDoc,
-                    role: 'docente',
-                    nombre: docenteNombre,
-                    programas: []
+                data.users[user] = studentData;
+                data.students[user] = {
+                    nombre: studentData.nombre,
+                    programa: studentData.programa,
+                    codigoPrograma: studentData.codigoPrograma,
+                    materias: []
                 };
-            }
 
-            // Build student data
-            if (usuarioEst) {
-                if (!data.students[usuarioEst]) {
-                    data.students[usuarioEst] = {
-                        nombre: estudianteNombre,
-                        programa: programa,
-                        materias: []
+                if (studentData.programa) {
+                    if (!data.programs[studentData.programa]) {
+                        data.programs[studentData.programa] = { estudiantes: [], materias: [] };
+                    }
+                    data.programs[studentData.programa].estudiantes.push(user);
+                }
+            });
+        }
+
+        // --- Docentes Sheet ---
+        const docSheet = workbook.Sheets['Docentes'];
+        if (docSheet) {
+            const rows = XLSX.utils.sheet_to_json(docSheet, { defval: '' });
+            rows.forEach(row => {
+                const user = String(row['Usuario'] || '').trim().toLowerCase();
+                if (!user) return;
+
+                const materia = String(row['Materia'] || '').trim();
+                const progName = String(row['Programa asignado'] || '').trim();
+                const horas = parseInt(row['Horas']) || 0;
+                const dates = parseClassDates(String(row['Fechas de clases'] || '').trim());
+
+                if (!data.users[user]) {
+                    data.users[user] = {
+                        username: user,
+                        password: String(row['Contraseña'] || '').trim(),
+                        role: 'docente',
+                        nombre: String(row['NOMBRE'] || '').trim(),
+                        programas: []
                     };
                 }
-                if (materia) {
-                    data.students[usuarioEst].materias.push({
-                        materia,
-                        nota: nota !== null ? nota : null,
-                        docente: docenteNombre,
-                        usuarioDocente: usuarioDoc
-                    });
-                }
-            }
 
-            // Build teacher data
-            if (usuarioDoc) {
-                if (!data.teachers[usuarioDoc]) {
-                    data.teachers[usuarioDoc] = {
-                        nombre: docenteNombre,
+                if (!data.teachers[user]) {
+                    data.teachers[user] = {
+                        nombre: data.users[user].nombre,
                         programas: new Set(),
+                        materias: [],
                         estudiantes: []
                     };
                 }
-                if (programa) data.teachers[usuarioDoc].programas.add(programa);
-                if (usuarioEst && estudianteNombre) {
-                    const exists = data.teachers[usuarioDoc].estudiantes.find(e => e.usuario === usuarioEst);
-                    if (!exists) {
-                        data.teachers[usuarioDoc].estudiantes.push({
-                            usuario: usuarioEst,
-                            nombre: estudianteNombre,
-                            programa
-                        });
-                    }
-                }
-            }
 
-            // Build programs
-            if (programa) {
-                if (!data.programs[programa]) data.programs[programa] = { estudiantes: new Set(), materias: new Set() };
-                if (usuarioEst) data.programs[programa].estudiantes.add(usuarioEst);
-                if (materia) data.programs[programa].materias.add(materia);
-            }
-        });
+                if (progName) data.teachers[user].programas.add(progName);
+                if (materia) {
+                    data.teachers[user].materias.push({
+                        nombre: materia,
+                        programa: progName,
+                        horas: horas,
+                        fechas: dates
+                    });
+                    
+                    // Link students to this teacher/materia based on program
+                    Object.entries(data.students).forEach(([sUser, sData]) => {
+                        if (sData.programa === progName) {
+                            // Link student to materia
+                            if (!sData.materias.find(m => m.materia === materia)) {
+                                sData.materias.push({
+                                    materia,
+                                    nota: null,
+                                    docente: data.users[user].nombre,
+                                    usuarioDocente: user,
+                                    horas: horas,
+                                    fechas: dates
+                                });
+                            }
+                            
+                            // Add student to teacher's general list if not already there
+                            if (!data.teachers[user].estudiantes.find(e => e.usuario === sUser)) {
+                                data.teachers[user].estudiantes.push({
+                                    usuario: sUser,
+                                    nombre: sData.nombre,
+                                    programa: progName
+                                });
+                            }
+                        }
+                    });
+                }
+            });
+        }
 
         // Convert Sets to Arrays
         Object.keys(data.teachers).forEach(k => {
             data.teachers[k].programas = Array.from(data.teachers[k].programas);
-            if (data.users[k]) data.users[k].programas = data.teachers[k].programas;
-        });
-        Object.keys(data.programs).forEach(k => {
-            data.programs[k].estudiantes = Array.from(data.programs[k].estudiantes);
-            data.programs[k].materias = Array.from(data.programs[k].materias);
+            data.users[k].programas = data.teachers[k].programas;
         });
 
-        // ── Evaluation Questions sheet ────────────────────────────────────────────
-        const evalSheetName = workbook.SheetNames.find(n =>
-            n.toLowerCase().includes('pregunta') || n.toLowerCase().includes('evaluaci')
-        );
-        if (evalSheetName) {
-            const evalSheet = workbook.Sheets[evalSheetName];
-            const evalRows = XLSX.utils.sheet_to_json(evalSheet, { defval: '' });
-            data.evaluationQuestions = evalRows.map((r, i) => ({
-                id: r['id'] || r['ID'] || i + 1,
-                pregunta: r['pregunta'] || r['Pregunta'] || r['PREGUNTA'] || Object.values(r)[0] || ''
-            })).filter(q => q.pregunta);
-        }
-
-        // Default questions if sheet not found
-        if (data.evaluationQuestions.length === 0) {
-            data.evaluationQuestions = [
-                { id: 1, pregunta: '¿El docente explica los temas con claridad?' },
-                { id: 2, pregunta: '¿El docente muestra dominio del tema?' },
-                { id: 3, pregunta: '¿El docente es puntual y cumple el horario?' },
-                { id: 4, pregunta: '¿El docente fomenta la participación activa?' },
-                { id: 5, pregunta: '¿El docente brinda retroalimentación oportuna?' },
-                { id: 6, pregunta: '¿El docente utiliza recursos didácticos adecuados?' },
-                { id: 7, pregunta: '¿El docente genera un ambiente de respeto?' },
-                { id: 8, pregunta: '¿Recomendarías este docente a otros estudiantes?' }
-            ];
-        }
-
-        // ── Admin user ────────────────────────────────────────────────────────────
-        data.users['admin'] = {
-            username: 'admin',
-            password: 'admin2024',
-            role: 'administrativo',
-            nombre: 'Administrador del Sistema'
-        };
-
-        cachedData = data;
-        return data;
-    } catch (err) {
-        console.error('Error parsing Excel:', err.message);
-        return getDefaultData();
-    }
-}
-
-function getDefaultData() {
-    return {
-        users: {
-            'est12': { username: 'est12', password: '789', role: 'estudiante', nombre: 'Ximena', programa: 'Gestión De Turismo De Reuniones, Incentivos Y Convenciones' },
-            'est06': { username: 'est06', password: '789', role: 'estudiante', nombre: 'Katerine', programa: 'Gestión Estratégica de la experiencia' },
-            'est11': { username: 'est11', password: '789', role: 'estudiante', nombre: 'Eliana', programa: 'Marketing Digital para hoteles' },
-            'est01': { username: 'est01', password: '987', role: 'estudiante', nombre: 'David', programa: 'Sales Upgrade: Dominando Las Tecnologías' },
-            'est03': { username: 'est03', password: '789', role: 'estudiante', nombre: 'Claudia', programa: 'Sales Upgrade: Dominando Las Tecnologías' },
-            'est07': { username: 'est07', password: '789', role: 'estudiante', nombre: 'Camila', programa: 'Liderazgo y Desarrollo de equipos' },
-            'est02': { username: 'est02', password: '789', role: 'estudiante', nombre: 'Laura', programa: 'Sales Upgrade: Dominando Las Tecnologías' },
-            'est08': { username: 'est08', password: '789', role: 'estudiante', nombre: 'Sofia', programa: 'Habilidades para el siglo XXI' },
-            'est04': { username: 'est04', password: '789', role: 'estudiante', nombre: 'Arturo', programa: 'Sales Upgrade: Dominando Las Tecnologías' },
-            'est09': { username: 'est09', password: '789', role: 'estudiante', nombre: 'María', programa: 'IA y estrategia digital para el tiempo compartido' },
-            'est10': { username: 'est10', password: '789', role: 'estudiante', nombre: 'Jonatan', programa: 'Analítica de negocios de Alojamiento' },
-            'est05': { username: 'est05', password: '789', role: 'estudiante', nombre: 'Heither', programa: 'Sales Upgrade: Dominando Las Tecnologías' },
-            'doc01': { username: 'doc01', password: '123', role: 'docente', nombre: 'Edgar Blanco', programas: ['Gestión De Turismo De Reuniones, Incentivos Y Convenciones', 'Gestión Estratégica de la experiencia', 'Marketing Digital para hoteles', 'Sales Upgrade: Dominando Las Tecnologías'] },
-            'doc02': { username: 'doc02', password: '123', role: 'docente', nombre: 'Eduardo Pacheco', programas: ['De La Gestión De Eventos Sostenibles A La Gestión Sostenible De Eventos', 'Liderazgo y Desarrollo de equipos', 'Sales Upgrade: Dominando Las Tecnologías'] },
-            'doc03': { username: 'doc03', password: '123', role: 'docente', nombre: 'Ramiro Parias', programas: ['Habilidades para el siglo XXI', 'Sales Upgrade: Dominando Las Tecnologías', 'Uso estratégico de IA y transformación digital para la toma de decisiones, la eficiencia y la experiencia empresarial'] },
-            'doc04': { username: 'doc04', password: '123', role: 'docente', nombre: 'Ingrid Duque', programas: ['Control, costos y presupuestos de alimentos y bebidas', 'Creador y gestor de contenidos para empresas turisticas', 'IA y estrategia digital para el tiempo compartido', 'Sales Upgrade: Dominando Las Tecnologías'] },
-            'doc05': { username: 'doc05', password: '123', role: 'docente', nombre: 'Camilo Ayala', programas: ['Analítica de negocios de Alojamiento', 'Innovación tecnológica aplicada al sector turístico', 'Logística, administración financiera y evaluación de eventos', 'Revenue management en la industria del Alojamiento', 'Sales Upgrade: Dominando Las Tecnologías'] },
-            'admin': { username: 'admin', password: 'admin2024', role: 'administrativo', nombre: 'Administrador del Sistema' }
-        },
-        students: {
-            'est12': { nombre: 'Ximena', programa: 'Gestión De Turismo De Reuniones, Incentivos Y Convenciones', materias: [{ materia: 'Presupuestos', nota: null, docente: 'Edgar Blanco', usuarioDocente: 'doc01' }] },
-            'est06': { nombre: 'Katerine', programa: 'Gestión Estratégica de la experiencia', materias: [{ materia: 'Presupuestos', nota: null, docente: 'Edgar Blanco', usuarioDocente: 'doc01' }] },
-            'est11': { nombre: 'Eliana', programa: 'Marketing Digital para hoteles', materias: [{ materia: 'Presupuestos', nota: null, docente: 'Edgar Blanco', usuarioDocente: 'doc01' }] },
-            'est01': { nombre: 'David', programa: 'Sales Upgrade: Dominando Las Tecnologías', materias: [{ materia: 'Presupuestos', nota: null, docente: 'Edgar Blanco', usuarioDocente: 'doc01' }, { materia: 'Normatividad', nota: null, docente: 'Camilo Ayala', usuarioDocente: 'doc05' }] },
-            'est03': { nombre: 'Claudia', programa: 'Sales Upgrade: Dominando Las Tecnologías', materias: [{ materia: 'Diseño', nota: null, docente: 'Eduardo Pacheco', usuarioDocente: 'doc02' }, { materia: 'Costos', nota: null, docente: 'Ramiro Parias', usuarioDocente: 'doc03' }, { materia: 'Normatividad', nota: null, docente: 'Camilo Ayala', usuarioDocente: 'doc05' }] },
-            'est07': { nombre: 'Camila', programa: 'Liderazgo y Desarrollo de equipos', materias: [{ materia: 'Diseño', nota: null, docente: 'Eduardo Pacheco', usuarioDocente: 'doc02' }] },
-            'est02': { nombre: 'Laura', programa: 'Sales Upgrade: Dominando Las Tecnologías', materias: [{ materia: 'Diseño', nota: null, docente: 'Eduardo Pacheco', usuarioDocente: 'doc02' }, { materia: 'Analítica', nota: null, docente: 'Ingrid Duque', usuarioDocente: 'doc04' }] },
-            'est08': { nombre: 'Sofia', programa: 'Habilidades para el siglo XXI', materias: [{ materia: 'Costos', nota: null, docente: 'Ramiro Parias', usuarioDocente: 'doc03' }] },
-            'est04': { nombre: 'Arturo', programa: 'Sales Upgrade: Dominando Las Tecnologías', materias: [{ materia: 'Costos', nota: null, docente: 'Ramiro Parias', usuarioDocente: 'doc03' }, { materia: 'Analítica', nota: null, docente: 'Ingrid Duque', usuarioDocente: 'doc04' }] },
-            'est09': { nombre: 'María', programa: 'IA y estrategia digital para el tiempo compartido', materias: [{ materia: 'Analítica', nota: null, docente: 'Ingrid Duque', usuarioDocente: 'doc04' }] },
-            'est10': { nombre: 'Jonatan', programa: 'Analítica de negocios de Alojamiento', materias: [{ materia: 'Normatividad', nota: null, docente: 'Camilo Ayala', usuarioDocente: 'doc05' }] },
-            'est05': { nombre: 'Heither', programa: 'Sales Upgrade: Dominando Las Tecnologías', materias: [{ materia: 'Normatividad', nota: null, docente: 'Camilo Ayala', usuarioDocente: 'doc05' }] }
-        },
-        teachers: {
-            'doc01': {
-                nombre: 'Edgar Blanco', programas: ['Gestión De Turismo De Reuniones, Incentivos Y Convenciones', 'Gestión Estratégica de la experiencia', 'Marketing Digital para hoteles', 'Sales Upgrade: Dominando Las Tecnologías'], estudiantes: [
-                    { usuario: 'est12', nombre: 'Ximena', programa: 'Gestión De Turismo' },
-                    { usuario: 'est06', nombre: 'Katerine', programa: 'Gestión Estratégica' },
-                    { usuario: 'est11', nombre: 'Eliana', programa: 'Marketing Digital' },
-                    { usuario: 'est01', nombre: 'David', programa: 'Sales Upgrade' }
-                ]
-            },
-            'doc02': {
-                nombre: 'Eduardo Pacheco', programas: ['De La Gestión De Eventos Sostenibles A La Gestión Sostenible De Eventos', 'Liderazgo y Desarrollo de equipos', 'Sales Upgrade: Dominando Las Tecnologías'], estudiantes: [
-                    { usuario: 'est03', nombre: 'Claudia', programa: 'De La Gestión' },
-                    { usuario: 'est07', nombre: 'Camila', programa: 'Liderazgo' },
-                    { usuario: 'est02', nombre: 'Laura', programa: 'Sales Upgrade' }
-                ]
-            },
-            'doc03': {
-                nombre: 'Ramiro Parias', programas: ['Habilidades para el siglo XXI', 'Sales Upgrade: Dominando Las Tecnologías', 'Uso estratégico de IA y transformación digital para la toma de decisiones, la eficiencia y la experiencia empresarial'], estudiantes: [
-                    { usuario: 'est08', nombre: 'Sofia', programa: 'Habilidades' },
-                    { usuario: 'est03', nombre: 'Claudia', programa: 'Sales Upgrade' },
-                    { usuario: 'est04', nombre: 'Arturo', programa: 'Uso estratégico' }
-                ]
-            },
-            'doc04': {
-                nombre: 'Ingrid Duque', programas: ['Control, costos y presupuestos de alimentos y bebidas', 'Creador y gestor de contenidos para empresas turisticas', 'IA y estrategia digital para el tiempo compartido', 'Sales Upgrade: Dominando Las Tecnologías'], estudiantes: [
-                    { usuario: 'est04', nombre: 'Arturo', programa: 'Control, costos' },
-                    { usuario: 'est02', nombre: 'Laura', programa: 'Creador y gestor' },
-                    { usuario: 'est09', nombre: 'María', programa: 'IA y estrategia' },
-                    { usuario: 'est04', nombre: 'Arturo', programa: 'Sales Upgrade' }
-                ]
-            },
-            'doc05': {
-                nombre: 'Camilo Ayala', programas: ['Analítica de negocios de Alojamiento', 'Innovación tecnológica aplicada al sector turístico', 'Logística, administración financiera y evaluación de eventos', 'Revenue management en la industria del Alojamiento', 'Sales Upgrade: Dominando Las Tecnologías'], estudiantes: [
-                    { usuario: 'est10', nombre: 'Jonatan', programa: 'Analítica' },
-                    { usuario: 'est03', nombre: 'Claudia', programa: 'Innovación' },
-                    { usuario: 'est05', nombre: 'Heither', programa: 'Logística' },
-                    { usuario: 'est01', nombre: 'David', programa: 'Revenue' },
-                    { usuario: 'est05', nombre: 'Heither', programa: 'Sales Upgrade' }
-                ]
-            }
-        },
-        programs: {},
-        evaluationQuestions: [
+        // Evaluation questions (simplified/default)
+        data.evaluationQuestions = [
             { id: 1, pregunta: '¿El docente explica los temas con claridad?' },
             { id: 2, pregunta: '¿El docente muestra dominio del tema?' },
             { id: 3, pregunta: '¿El docente es puntual y cumple el horario?' },
@@ -263,9 +204,41 @@ function getDefaultData() {
             { id: 6, pregunta: '¿El docente utiliza recursos didácticos adecuados?' },
             { id: 7, pregunta: '¿El docente genera un ambiente de respeto?' },
             { id: 8, pregunta: '¿Recomendarías este docente a otros estudiantes?' }
-        ],
-        rawRows: []
-    };
+        ];
+
+        // --- Administrativos Sheet ---
+        const admSheet = workbook.Sheets['Administrativos'];
+        if (admSheet) {
+            const rows = XLSX.utils.sheet_to_json(admSheet, { defval: '' });
+            rows.forEach(row => {
+                const user = String(row['Usuario'] || '').trim().toLowerCase();
+                if (!user) return;
+                
+                data.users[user] = {
+                    username: user,
+                    password: String(row['Contraseña'] || '').trim(),
+                    role: 'administrativo',
+                    nombre: String(row['NOMBRE'] || '').trim()
+                };
+            });
+        }
+
+        // Admin user (legacy/fallback)
+        if (!data.users['admin']) {
+            data.users['admin'] = {
+                username: 'admin',
+                password: 'admin2024',
+                role: 'administrativo',
+                nombre: 'Administrador del Sistema'
+            };
+        }
+
+        cachedData = data;
+        return data;
+    } catch (err) {
+        console.error('Error parsing Excel:', err);
+        return { users: {}, students: {}, teachers: {}, programs: {}, evaluationQuestions: [] };
+    }
 }
 
 function getData() {
@@ -275,8 +248,7 @@ function getData() {
         cachedData = parseExcel(excelPath);
         return applyOverrides(cachedData);
     }
-    cachedData = getDefaultData();
-    return applyOverrides(cachedData);
+    return { users: {}, students: {}, teachers: {}, programs: {}, evaluationQuestions: [] };
 }
 
 function reloadFromFile(filePath) {
@@ -286,7 +258,6 @@ function reloadFromFile(filePath) {
 
 function clearCache() {
     cachedData = null;
-    console.log('Cache cleared, reloading academic data on next request...');
 }
 
-module.exports = { getData, parseExcel, reloadFromFile, clearCache, getDefaultData };
+module.exports = { getData, parseExcel, reloadFromFile, clearCache };

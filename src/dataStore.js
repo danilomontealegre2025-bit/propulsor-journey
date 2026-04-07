@@ -37,9 +37,12 @@ function saveDB() {
 loadDB();
 
 // ── Attendance ────────────────────────────────────────────────────────────────
-function setAttendance(teacherUser, studentUser, status) {
+function setAttendance(teacherUser, materia, date, studentUser, status) {
     if (!store.attendance[teacherUser]) store.attendance[teacherUser] = {};
-    store.attendance[teacherUser][studentUser] = status;
+    if (!store.attendance[teacherUser][materia]) store.attendance[teacherUser][materia] = {};
+    if (!store.attendance[teacherUser][materia][date]) store.attendance[teacherUser][materia][date] = {};
+    
+    store.attendance[teacherUser][materia][date][studentUser] = status;
     saveDB();
 }
 

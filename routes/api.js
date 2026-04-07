@@ -421,8 +421,8 @@ router.get('/pdf/student', requireAuth, requireRole('estudiante'), async (req, r
         res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="reporte-${username}.pdf"` });
         res.send(pdf);
     } catch (e) {
-        console.error('PDF error:', e);
-        res.status(500).json({ error: 'Error generando PDF' });
+        console.error('PDF error (Student):', e);
+        res.status(500).json({ error: 'Error generando PDF: ' + e.message });
     }
 });
 
@@ -437,8 +437,8 @@ router.get('/pdf/teacher', requireAuth, requireRole('docente'), async (req, res)
         res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="evaluacion-${username}.pdf"` });
         res.send(pdf);
     } catch (e) {
-        console.error('PDF error:', e);
-        res.status(500).json({ error: 'Error generando PDF' });
+        console.error('PDF error (Teacher):', e);
+        res.status(500).json({ error: 'Error generando PDF: ' + e.message });
     }
 });
 
@@ -479,8 +479,8 @@ router.get('/pdf/admin', requireAuth, requireRole('administrativo'), async (req,
         res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': 'attachment; filename="informe-general.pdf"' });
         res.send(pdf);
     } catch (e) {
-        console.error('PDF error:', e);
-        res.status(500).json({ error: 'Error generando PDF' });
+        console.error('PDF error (Admin):', e);
+        res.status(500).json({ error: 'Error generando PDF: ' + e.message });
     }
 });
 
@@ -511,7 +511,8 @@ router.get('/pdf/student/:username', requireAuth, requireRole('administrativo'),
         res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="reporte-${username}.pdf"` });
         res.send(pdf);
     } catch (e) {
-        res.status(500).json({ error: 'Error generando PDF' });
+        console.error('PDF error (Admin-Student):', e);
+        res.status(500).json({ error: 'Error generando PDF: ' + e.message });
     }
 });
 

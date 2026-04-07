@@ -22,7 +22,11 @@ RUN apt-get update && apt-get install -y \
     libpango-1.0-0 \
     libxcomposite1 \
     libxdamage1 \
-    libxrandr2 \
+    libxrandr2 \ 
+    libnss3 \ 
+    libnspr4 \ 
+    libxkbcommon0 \ 
+    libxshmfence1 \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 

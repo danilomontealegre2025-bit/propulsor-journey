@@ -35,8 +35,9 @@ async function generateStudentPDF(studentData) {
     globalTotal += total;
     globalPresent += present;
 
-    const attStatus = pct < 80 ? 'REPROBADO POR FALLAS' : (m.nota >= 3.0 ? 'APROBADO' : m.nota !== null ? 'REPROBADO' : 'PENDIENTE');
-    const color = pct < 80 ? '#dc2626' : notaColor(m.nota);
+    const isFailedByAttendance = total > 0 && pct < 80;
+    const attStatus = isFailedByAttendance ? 'REPROBADO (FALLAS)' : (m.nota !== null ? (m.nota >= 3.0 ? 'APROBADO' : 'REPROBADO (NOTAS)') : 'PENDIENTE');
+    const color = isFailedByAttendance ? '#dc2626' : notaColor(m.nota);
 
     return `
       <tr>

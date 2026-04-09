@@ -217,13 +217,23 @@
                 const nota = m.nota !== null && m.nota !== undefined ? parseFloat(m.nota) : null;
                 const notaStr = nota !== null ? nota.toFixed(1) : 'Sin nota';
                 const gradeClass = nota === null ? 'grade-none' : nota >= 3.5 ? 'grade-high' : nota >= 3.0 ? 'grade-mid' : 'grade-low';
-                const badgeClass = nota === null ? 'badge-gray' : nota >= 3.0 ? 'badge-success' : 'badge-danger';
-                const badgeText = nota === null ? 'Pendiente' : nota >= 3.0 ? 'Aprobado' : 'Reprobado';
-                const pct = nota !== null ? Math.min(100, (nota / 5 * 100)).toFixed(0) : 0;
-                const barColor = nota === null ? '#ccc' : nota >= 3.5 ? '#16a34a' : nota >= 3.0 ? '#d97706' : '#dc2626';
-                const alertIcon = nota !== null && nota < 3.0 ? '⚠️ ' : '';
-                
                 const att = m.attendance || { percentage: 0, present: 0, total: 0 };
+                const isFailedByAttendance = att.total > 0 && att.percentage < 80;
+                
+                let badgeClass = 'badge-gray';
+                let badgeText = 'Pendiente';
+                if (isFailedByAttendance) {
+                    badgeClass = 'badge-danger';
+                    badgeText = 'Reprobado (Fallas)';
+                } else if (nota !== null) {
+                    badgeClass = nota >= 3.0 ? 'badge-success' : 'badge-danger';
+                    badgeText = nota >= 3.0 ? 'Aprobado' : 'Reprobado (Notas)';
+                }
+
+                const pct = nota !== null ? Math.min(100, (nota / 5 * 100)).toFixed(0) : 0;
+                const barColor = isFailedByAttendance ? '#dc2626' : (nota === null ? '#ccc' : nota >= 3.5 ? '#16a34a' : nota >= 3.0 ? '#d97706' : '#dc2626');
+                const alertIcon = (nota !== null && nota < 3.0) || isFailedByAttendance ? '⚠️ ' : '';
+                
                 const attColor = att.percentage >= 80 ? '#16a34a' : att.percentage >= 60 ? '#d97706' : '#dc2626';
 
                 return `<tr>
@@ -388,7 +398,11 @@
             showToast('⏳ Generando PDF...', 'info');
             try {
                 const res = await fetch('/api/pdf/student');
-                if (!res.ok) { showToast('Error generando PDF', 'error'); return; }
+                if (!res.ok) { 
+                    const errData = await res.json();
+                    showToast(errData.error || 'Error generando PDF', 'error'); 
+                    return; 
+                }
                 const blob = await res.blob();
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');

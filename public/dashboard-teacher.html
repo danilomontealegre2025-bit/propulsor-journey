@@ -489,7 +489,11 @@
             showToast('⏳ Generando PDF...', 'info');
             try {
                 const res = await fetch('/api/pdf/teacher');
-                if (!res.ok) { showToast('Error generando PDF', 'error'); return; }
+                if (!res.ok) { 
+                    const errData = await res.json();
+                    showToast(errData.error || 'Error generando PDF', 'error'); 
+                    return; 
+                }
                 const blob = await res.blob();
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');

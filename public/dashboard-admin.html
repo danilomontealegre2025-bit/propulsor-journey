@@ -748,7 +748,11 @@
         async function downloadStudentPDF(username) {
             showToast('⏳ Generando PDF...', 'info');
             const res = await fetch(`/api/pdf/student/${username}`);
-            if (!res.ok) { showToast('Error generando PDF', 'error'); return; }
+            if (!res.ok) { 
+                const errData = await res.json();
+                showToast(errData.error || 'Error generando PDF', 'error'); 
+                return; 
+            }
             const blob = await res.blob();
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -826,7 +830,11 @@
             showToast('⏳ Generando informe general...', 'info');
             try {
                 const res = await fetch('/api/pdf/admin');
-                if (!res.ok) { showToast('Error generando PDF', 'error'); return; }
+                if (!res.ok) { 
+                    const errData = await res.json();
+                    showToast(errData.error || 'Error generando PDF', 'error'); 
+                    return; 
+                }
                 const blob = await res.blob();
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');

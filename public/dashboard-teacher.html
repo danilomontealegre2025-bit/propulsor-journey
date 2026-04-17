@@ -96,8 +96,8 @@
                         <div style="display:flex; justify-content:space-between; align-items:center">
                             <div class="card-title">📋 Registro de Asistencia</div>
                             <div style="display:flex; gap:8px">
-                                <button class="btn btn-success btn-sm" onclick="markAll('presente')">✅ Todos Presentes</button>
-                                <button class="btn btn-danger btn-sm" onclick="markAll('ausente')">❌ Todos Ausentes</button>
+                                <button class="btn btn-success btn-sm" onclick="markAllHours()">⏳ Asignar Horas a Todos</button>
+                                <button class="btn btn-danger btn-sm" onclick="markAll(0)">❌ Borrar a Todos</button>
                             </div>
                         </div>
                         
@@ -119,7 +119,8 @@
                                     <th>Estudiante</th>
                                     <th>Programa</th>
                                     <th>Nota</th>
-                                    <th>Asistencia</th>
+                                    <th>Asistencia (Hrs)</th>
+                                    <th>Insignia</th>
                                 </tr>
                             </thead>
                             <tbody id="studentsTableBody">
@@ -278,12 +279,15 @@
                                 onchange="updateGrade('${s.usuario}', this.value)">
                         </td>
                         <td>
-                            <div class="attendance-toggle">
-                                <button class="att-btn presente ${status === 'presente' ? 'active' : ''}"
-                                    onclick="setAttendance('${s.usuario}', 'presente', this)">✅</button>
-                                <button class="att-btn ausente ${status === 'ausente' ? 'active' : ''}"
-                                    onclick="setAttendance('${s.usuario}', 'ausente', this)">❌</button>
-                            </div>
+                            <input type="number" step="0.5" min="0" class="form-control" 
+                                style="width:70px; padding:4px; text-align:center" 
+                                value="${status !== 'sin_registro' ? status : ''}" 
+                                placeholder="Hrs"
+                                onchange="setAttendance('${s.usuario}', this.value, this)">
+                        </td>
+                        <td>
+                            <span class="badge ${s.insignia.includes('Ninguna') || s.insignia.includes('No Cumple') ? 'badge-red' : 'badge-green'}">${s.insignia}</span>
+                            <div style="font-size:10px; color:#888; text-align:center; margin-top:2px;">(Asist: ${s.asistenciaTotalVal !== undefined ? s.asistenciaTotalVal : 0}%, Prom: ${s.promedio !== undefined ? s.promedio : 0})</div>
                         </td>
                     </tr>
                 `;
@@ -306,10 +310,12 @@
 
             const materia = teacherData.materias[matIndex];
             
-            // UI Update
-            const parent = btn.parentElement;
-            parent.querySelectorAll('.att-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
+            // UI logic indicator (for instance flash green momentarily)
+            const inputEl = btn.tagName === 'INPUT' ? btn : null;
+            if (inputEl) {
+                inputEl.style.backgroundColor = '#e8f5e9';
+                setTimeout(() => inputEl.style.backgroundColor = '', 1000);
+            }
 
             try {
                 const res = await fetch('/api/teacher/attendance', {
@@ -325,13 +331,19 @@
                     teacherData.attendance[materia.nombre][selectedDate][studentUser] = status;
                     
                     // Update KPI
-                    const currentAttendanceForDate = teacherData.attendance[materia.nombre][selectedDate];
-                    const count = Object.values(currentAttendanceForDate).filter(v => v === 'presente').length;
+                    const count = Object.values(currentAttendanceForDate).filter(v => v !== undefined && v !== 'ausente' && v !== 'sin_registro' && v > 0).length;
                     document.getElementById('kpiPresentes').textContent = count;
                 }
             } catch (e) {
                 showToast('Error al conectar con el servidor', 'error');
             }
+        }
+
+        async function markAllHours() {
+            const horasTexto = prompt("Ingrese el número de horas a registrar para todos (ej. 2):");
+            const horas = parseFloat(horasTexto);
+            if (isNaN(horas)) return showToast('Valor ingresado no es válido', 'error');
+            await markAll(horas);
         }
 
         async function markAll(status) {
@@ -403,18 +415,8 @@
             }
 
             // Calculate averages
-            const qAvgs = evalData.questions.map(q => {
-                const answers = evalData.evaluations.map(e => {
-                    const a = e.answers.find(a => a.questionId == q.id);
-                    return a ? parseFloat(a.value) : null;
-                }).filter(v => v !== null);
-                const avg = answers.length ? (answers.reduce((s, v) => s + v, 0) / answers.length).toFixed(2) : 'N/A';
-                return { pregunta: q.pregunta, avg, count: answers.length };
-            });
-
-            const overallAvg = qAvgs.filter(q => q.avg !== 'N/A').length
-                ? (qAvgs.filter(q => q.avg !== 'N/A').reduce((s, q) => s + parseFloat(q.avg), 0) / qAvgs.filter(q => q.avg !== 'N/A').length).toFixed(2)
-                : 'N/A';
+            const qAvgs = evalData.questionStats;
+            const overallAvg = evalData.overallAvg;
 
             container.innerHTML = `
         <div class="card" style="margin-bottom:20px">
@@ -435,14 +437,14 @@
           </div>
         </div>
         <div class="card">
-          <div class="card-header"><div class="card-title">📋 Detalle por Criterio</div></div>
+          <div class="card-header"><div class="card-title">📋 Detalle por Criterio (Secciones)</div></div>
           <div class="card-body">
             ${qAvgs.map((q, i) => {
                 const pct = q.avg !== 'N/A' ? (parseFloat(q.avg) / 5 * 100).toFixed(0) : 0;
                 const color = parseFloat(q.avg) >= 4 ? '#16a34a' : parseFloat(q.avg) >= 3 ? '#d97706' : '#dc2626';
                 return `<div style="margin-bottom:18px">
                 <div style="display:flex;justify-content:space-between;margin-bottom:6px">
-                  <span style="font-size:13px;color:var(--gray-700)">${i + 1}. ${q.pregunta}</span>
+                  <span style="font-size:13px;color:var(--gray-700); font-weight:600">${q.section}</span>
                   <strong style="color:${color};font-size:14px">${q.avg}/5</strong>
                 </div>
                 <div class="progress-bar" style="height:10px">
@@ -454,6 +456,19 @@
         </div>
       `;
 
+            if (evalData.comments && evalData.comments.length > 0) {
+                container.innerHTML += `
+                    <div class="card" style="margin-top:20px">
+                        <div class="card-header"><div class="card-title">💬 Comentarios de los estudiantes</div></div>
+                        <div class="card-body">
+                            <ul style="padding-left:20px; color:var(--gray-600); font-size:14px; margin:0; line-height: 1.5;">
+                                ${evalData.comments.map(c => `<li style="margin-bottom:12px">"${c}"</li>`).join('')}
+                            </ul>
+                        </div>
+                    </div>
+                `;
+            }
+
             renderEvalChart(qAvgs);
         }
 
@@ -463,7 +478,11 @@
             evalChart = new Chart(ctx, {
                 type: 'radar',
                 data: {
-                    labels: qAvgs.map((q, i) => `Criterio ${i + 1}`),
+                    labels: qAvgs.map((q, i) => {
+                        // Truncar textos demasiado largos en el radar
+                        const txt = q.section;
+                        return txt.length > 20 ? txt.substring(0, 20) + '...' : txt;
+                    }),
                     datasets: [{
                         label: 'Promedio',
                         data: qAvgs.map(q => q.avg !== 'N/A' ? parseFloat(q.avg) : 0),

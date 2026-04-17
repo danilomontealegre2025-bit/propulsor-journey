@@ -330,17 +330,41 @@
                     ? `<div class="card-body"><div class="alert alert-success">✅ Ya enviaste tu evaluación para este docente. ¡Gracias!</div></div>`
                     : `<div class="card-body">
                 <form onsubmit="submitEvaluation(event, '${t.username}')">
-                  ${evaluationData.questions.map((q, i) => `
-                    <div class="form-group">
-                      <div class="form-label">${i + 1}. ${q.pregunta}</div>
-                      <div class="rating-group">
-                        ${[1, 2, 3, 4, 5].map(v => `
-                          <button type="button" class="rating-btn" data-q="${q.id}" data-v="${v}" onclick="selectRating(this, '${t.username}', ${q.id}, ${v})">${v}</button>
-                        `).join('')}
-                        <span style="font-size:12px;color:var(--gray-400);margin-left:4px">1=Deficiente · 5=Excelente</span>
-                      </div>
-                    </div>
-                  `).join('')}
+                  ${
+                    Object.entries(
+                        evaluationData.questions.reduce((acc, q) => {
+                            acc[q.section || 'General'] = acc[q.section || 'General'] || [];
+                            acc[q.section || 'General'].push(q);
+                            return acc;
+                        }, {})
+                    ).map(([section, qs]) => `
+                        <div style="margin-bottom:24px; padding:16px; border:1px solid #e2e8f0; border-radius:8px; background:#f8fafc">
+                            <h4 style="margin-top:0; margin-bottom:12px; color:var(--gray-700)">${section}</h4>
+                            ${qs.map((q, i) => {
+                                if (q.type === 'text') {
+                                    return `
+                                        <div class="form-group" style="margin-bottom:12px">
+                                            <div class="form-label">${q.pregunta}</div>
+                                            <textarea class="form-control" rows="3" placeholder="Escribe tus comentarios aquí..." onchange="selectRating(this, '${t.username}', ${q.id}, this.value)" style="width:100%"></textarea>
+                                        </div>
+                                    `;
+                                } else {
+                                    return `
+                                        <div class="form-group" style="margin-bottom:12px">
+                                            <div class="form-label">${q.pregunta}</div>
+                                            <div class="rating-group">
+                                                ${[1, 2, 3, 4, 5].map(v => `
+                                                    <button type="button" class="rating-btn" data-q="${q.id}" data-v="${v}" onclick="selectRating(this, '${t.username}', ${q.id}, ${v})">${v}</button>
+                                                `).join('')}
+                                                <span style="font-size:12px;color:var(--gray-400);margin-left:8px">1=Deficiente · 5=Excelente</span>
+                                            </div>
+                                        </div>
+                                    `;
+                                }
+                            }).join('')}
+                        </div>
+                    `).join('')
+                  }
                   <button type="submit" class="btn btn-primary" id="submitBtn-${t.username}">
                     📤 Enviar Evaluación
                   </button>
@@ -352,12 +376,16 @@
         }
 
         const ratings = {};
-        function selectRating(btn, teacherUser, questionId, value) {
+        function selectRating(el, teacherUser, questionId, value) {
             if (!ratings[teacherUser]) ratings[teacherUser] = {};
             ratings[teacherUser][questionId] = value;
-            // Update UI
-            document.querySelectorAll(`[data-q="${questionId}"]`).forEach(b => b.classList.remove('selected'));
-            btn.classList.add('selected');
+            
+            // Si es un botón de rating, actualizar UI
+            if (el.tagName === 'BUTTON') {
+                const parent = el.closest('.rating-group');
+                parent.querySelectorAll('.rating-btn').forEach(b => b.classList.remove('selected'));
+                el.classList.add('selected');
+            }
         }
 
         async function submitEvaluation(e, teacherUser) {

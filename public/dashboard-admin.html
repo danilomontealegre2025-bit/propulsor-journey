@@ -194,9 +194,10 @@
                                     <th>Nombre</th>
                                     <th>Materia(s) Calificada(s)</th>
                                     <th>Programa</th>
-                                    <th style="text-align:center">Fallas</th>
+                                    <th style="text-align:center">Horas Asis.</th>
+                                    <th style="text-align:center">Insignia</th>
                                     <th style="text-align:center">Promedio</th>
-                                    <th style="text-align:center">Estado</th>
+                                    <th style="text-align:center">Estado Académico</th>
                                     <th style="text-align:right">Acciones</th>
                                 </tr>
                             </thead>
@@ -403,22 +404,27 @@
         function renderStudentsTable(students) {
             const studentTable = document.getElementById('adminStudentsTable');
             studentTable.innerHTML = students.map(s => {
-                const results = calculateStudentAvg(s);
-                const fallas = s.attendanceStats ? s.attendanceStats.totalFallas : 0;
+                const fallas = s.attendanceStats && s.attendanceStats.totalFallas ? s.attendanceStats.totalFallas : 0;
+                const hours = s.attendanceStats ? s.attendanceStats.totalAssistedHours : 0;
+                const totalHours = s.attendanceStats ? s.attendanceStats.totalProgramHours : 0;
+                const pct = s.attendanceStats ? s.attendanceStats.attendancePct : 0;
+                const insignia = s.attendanceStats ? s.attendanceStats.insigniaStatus : 'No Cumple';
+
                 const isForgiven = s.attendanceStats ? s.attendanceStats.isForgiven : false;
 
-                const avgNum = results.avg !== null ? parseFloat(results.avg) : 0;
-                const isFailingByGrades = results.avg !== null && avgNum < 3.0;
-                const isFailingByAttendance = fallas > 0 && !isForgiven;
-                const isReprobated = isFailingByGrades || isFailingByAttendance;
+                const avgNum = s.attendanceStats ? s.attendanceStats.promedioFinal : 0;
+                const isFailingByGrades = avgNum > 0 && avgNum < 3.0;
+                const isFailingByAttendance = totalHours > 0 && pct < 80 && !isForgiven;
 
                 let statusBadge = '<span class="badge badge-success">Aprobado</span>';
                 if (isFailingByGrades && isFailingByAttendance) {
-                    statusBadge = '<span class="badge badge-danger">Reprobado (Notas/Fallas)</span>';
+                    statusBadge = '<span class="badge badge-danger">Reprobado (Notas/Asist)</span>';
                 } else if (isFailingByGrades) {
                     statusBadge = '<span class="badge badge-warning">Reprobado (Notas)</span>';
                 } else if (isFailingByAttendance) {
-                    statusBadge = '<span class="badge badge-danger">Reprobado (Fallas)</span>';
+                    statusBadge = '<span class="badge badge-danger">Reprobado (Asist)</span>';
+                } else if (avgNum === 0 || totalHours === 0) {
+                    statusBadge = '<span class="badge badge-gray">En curso</span>';
                 }
 
                 const gradedMaterias = (s.materias || []).filter(m => m.nota !== null && !isNaN(m.nota)).map(m => m.materia);
@@ -433,11 +439,12 @@
                         <td>${gradedHtml}</td>
                         <td><span class="badge badge-gray">${s.programa}</span></td>
                         <td style="text-align:center">
-                            <span class="badge ${fallas > 0 ? (isForgiven ? 'badge-info' : 'badge-red') : 'badge-gray'}">
-                                ${fallas} ${isForgiven ? '(Perdonadas)' : ''}
-                            </span>
+                            <span style="font-weight:600">${hours}</span> / <span style="font-size:12px;color:var(--gray-500)">${totalHours} Hrs</span>
                         </td>
-                        <td style="text-align:center"><strong style="color:${avgNum >= 3.0 ? 'var(--green-inst)' : 'var(--red)'}">${results.avg || 'N/A'}</strong></td>
+                        <td style="text-align:center">
+                            <span class="badge ${insignia.includes('Ninguna') || insignia.includes('No Cumple') ? 'badge-red' : 'badge-green'}">${insignia}</span>
+                        </td>
+                        <td style="text-align:center"><strong style="color:${avgNum >= 3.0 ? 'var(--green-inst)' : 'var(--red)'}">${avgNum || 'N/A'}</strong></td>
                         <td style="text-align:center">${statusBadge}</td>
                         <td style="text-align:right">
                             ${isFailingByAttendance ? `<button class="btn btn-success btn-sm" onclick="pardonAttendance('${s.username}')" title="Aprobar por Fallas">✅ Aprobar Fallas</button>` : ''}
@@ -571,7 +578,7 @@
                 const color = parseFloat(q.avg) >= 4 ? 'var(--green-inst)' : parseFloat(q.avg) >= 3 ? 'var(--yellow)' : 'var(--red)';
                 return `
                     <div style="margin-bottom:15px">
-                        <div style="font-size:13px; font-weight:600; margin-bottom:5px">${i + 1}. ${q.pregunta}</div>
+                        <div style="font-size:13px; font-weight:600; margin-bottom:5px">${q.section}</div>
                         <div style="display:flex; align-items:center; gap:10px">
                             <div class="progress-bar" style="flex:1">
                                 <div class="progress-fill" style="width:${pct}%; background:${color}"></div>
@@ -581,6 +588,17 @@
                     </div>
                 `;
             }).join('') || '<p style="text-align:center; padding:20px">No hay evaluaciones para este docente.</p>';
+
+            if (data.comments && data.comments.length > 0) {
+                statsContainer.innerHTML += `
+                    <div style="margin-top:24px; padding-top:16px; border-top:1px solid #eee">
+                        <div style="font-weight:600; margin-bottom:10px">💬 Comentarios y Sugerencias</div>
+                        <ul style="padding-left:20px; color:var(--gray-600); font-size:13px; margin:0">
+                            ${data.comments.map(c => `<li style="margin-bottom:8px">"${c}"</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+            }
 
             document.getElementById('evaluationModal').style.display = 'flex';
         }

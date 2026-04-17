@@ -50,16 +50,20 @@ router.get('/student/grades', requireAuth, requireRole('estudiante'), (req, res)
                 const status = matAtt[date][username];
                 if (status === 'presente') presentCount++;
                 else if (status === 'ausente') absentCount++;
+                else if (typeof status === 'number') {
+                    // It's hours
+                    presentCount += status; // count hours as "present count" for legacy fallback or UI display
+                }
             });
         }
 
         return {
             ...m,
             attendance: {
-                total: totalSessions,
+                total: m.horas || totalSessions, // use total hours if available
                 present: presentCount,
                 absent: absentCount,
-                percentage: totalSessions > 0 ? ((presentCount / totalSessions) * 100).toFixed(0) : 0
+                percentage: (m.horas || totalSessions) > 0 ? ((presentCount / (m.horas || totalSessions)) * 100).toFixed(0) : 0
             }
         };
     });
@@ -108,20 +112,63 @@ router.get('/teacher/info', requireAuth, requireRole('docente'), (req, res) => {
     const attendance = dataStore.getAttendance(username);
     
     // Return materias with their dates and students
-    // Enrich students with their grades for this teacher's materias
+    // Enrich students with their grades for this teacher's materias and overall badge status
+    const allAttendance = dataStore.getAllAttendance();
     const enrichedStudents = teacher.estudiantes.map(s => {
         const studentData = data.students[s.usuario];
         const studentNotes = {};
+        let totalProgramHours = 0;
+        let totalAssistedHours = 0;
+        let noteSum = 0;
+        let noteCount = 0;
+
         if (studentData && studentData.materias) {
             studentData.materias.forEach(m => {
                 if (m.usuarioDocente === username) {
                     studentNotes[m.materia] = m.nota;
                 }
+                totalProgramHours += (m.horas || 0);
+
+                if (m.nota !== null && !isNaN(m.nota)) {
+                    noteSum += parseFloat(m.nota);
+                    noteCount++;
+                }
+
+                // Sum up attendance hours across all their materias
+                if (m.usuarioDocente && allAttendance[m.usuarioDocente] && allAttendance[m.usuarioDocente][m.materia]) {
+                    const matAtt = allAttendance[m.usuarioDocente][m.materia];
+                    Object.values(matAtt).forEach(dateAtt => {
+                        const hrs = dateAtt[s.usuario];
+                        if (hrs && !isNaN(hrs)) {
+                            totalAssistedHours += parseFloat(hrs);
+                        }
+                    });
+                }
             });
         }
+
+        const promedioFinal = noteCount > 0 ? (noteSum / noteCount) : 0;
+        const attendancePct = totalProgramHours > 0 ? (totalAssistedHours / totalProgramHours) * 100 : 0;
+
+        let badgeCategory = 'Ninguna';
+        if (totalProgramHours >= 90 && totalProgramHours <= 120) badgeCategory = 'Competencia';
+        else if (totalProgramHours >= 25 && totalProgramHours <= 89) badgeCategory = 'Habilidad';
+        else if (totalProgramHours >= 12 && totalProgramHours <= 24) badgeCategory = 'Asistencia';
+
+        // The user mentioned <= 80% earlier but also explicitly clarified "nota <= 3.0" which was likely a typo for >= 3.0.
+        // We will grant the badge if attendance >= 80% and nota >= 3.0.
+        // "que diga: es insignia digital de acuerdo a cada categoria, ejemplo: habilidad"
+        let insigniaStatus = 'No Cumple';
+        if (attendancePct >= 80 && promedioFinal >= 3.0 && badgeCategory !== 'Ninguna') {
+            insigniaStatus = `Insignia Digital: ${badgeCategory}`;
+        }
+
         return {
             ...s,
-            notas: studentNotes
+            notas: studentNotes,
+            insignia: insigniaStatus,
+            promedio: promedioFinal.toFixed(1),
+            asistenciaTotalVal: attendancePct.toFixed(0)
         };
     });
 
@@ -137,10 +184,12 @@ router.get('/teacher/info', requireAuth, requireRole('docente'), (req, res) => {
 router.post('/teacher/attendance', requireAuth, requireRole('docente'), (req, res) => {
     const { studentUser, materia, date, status } = req.body;
     const teacherUser = req.session.user.username;
-    if (!studentUser || !materia || !date || !status) {
-        return res.status(400).json({ error: 'Faltan datos (studentUser, materia, date, status)' });
+    if (!studentUser || !materia || !date || status === undefined) {
+        return res.status(400).json({ error: 'Faltan datos (studentUser, materia, date, status/hours)' });
     }
-    dataStore.setAttendance(teacherUser, materia, date, studentUser, status);
+    // We store the numeric hours directly 
+    const hours = parseFloat(status);
+    dataStore.setAttendance(teacherUser, materia, date, studentUser, isNaN(hours) ? status : hours);
     res.json({ success: true });
 });
 
@@ -158,7 +207,49 @@ router.get('/teacher/evaluations', requireAuth, requireRole('docente'), (req, re
     const data = getData();
     const username = req.session.user.username;
     const evaluations = dataStore.getTeacherEvaluations(username);
-    res.json({ evaluations, questions: data.evaluationQuestions });
+    const questions = data.evaluationQuestions || [];
+
+    const ratingQuestions = questions.filter(q => q.type !== 'text');
+    const textQuestions = questions.filter(q => q.type === 'text');
+
+    const sections = [...new Set(ratingQuestions.map(q => q.section || 'General'))];
+    const sectionStats = sections.map(section => {
+        const secQs = ratingQuestions.filter(q => q.section === section || (!q.section && section === 'General'));
+        const qIds = secQs.map(q => q.id);
+        
+        let sectionAnswers = [];
+        evaluations.forEach(e => {
+            e.answers.forEach(a => {
+                if (qIds.includes(a.questionId)) {
+                    const val = parseFloat(a.value);
+                    if (!isNaN(val)) sectionAnswers.push(val);
+                }
+            });
+        });
+        const sectionAvg = sectionAnswers.length ? (sectionAnswers.reduce((s, v) => s + v, 0) / sectionAnswers.length).toFixed(2) : 'N/A';
+        return {
+            section,
+            avg: sectionAvg,
+            count: sectionAnswers.length
+        };
+    });
+
+    const comments = textQuestions.flatMap(q => {
+        return evaluations.map(e => e.answers.find(a => a.questionId == q.id)?.value).filter(v => v);
+    });
+
+    const allRatingAnswers = evaluations.flatMap(e => 
+        e.answers.filter(a => ratingQuestions.some(rq => rq.id == a.questionId))
+                 .map(a => parseFloat(a.value))
+    ).filter(v => !isNaN(v));
+    const overallAvg = allRatingAnswers.length ? (allRatingAnswers.reduce((s, v) => s + v, 0) / allRatingAnswers.length).toFixed(2) : 'N/A';
+
+    res.json({ 
+        evaluations, 
+        overallAvg,
+        questionStats: sectionStats,
+        comments
+    });
 });
 
 // ── Admin endpoints ───────────────────────────────────────────────────────────
@@ -194,10 +285,18 @@ router.get('/admin/stats', requireAuth, requireRole('administrativo'), (req, res
 
     // Teacher evaluation averages
     const teacherEvalAvgs = teachers.map(t => {
-        // Find evaluations by username (find the key in data.teachers that matches this teacher object)
+        // Find evaluations by username
         const username = Object.keys(data.teachers).find(u => data.teachers[u].nombre === t.nombre);
         const evals = dataStore.getTeacherEvaluations(username || t.nombre.toLowerCase().replace(' ', ''));
-        const allAnswers = evals.flatMap(e => e.answers.map(a => parseFloat(a.value)));
+        const questions = data.evaluationQuestions || [];
+        const ratingQuestionIds = questions.filter(q => q.type !== 'text').map(q => q.id);
+        
+        const allAnswers = evals.flatMap(e => 
+            e.answers
+             .filter(a => ratingQuestionIds.includes(a.questionId))
+             .map(a => parseFloat(a.value))
+        ).filter(v => !isNaN(v));
+        
         const avg = allAnswers.length ? (allAnswers.reduce((a, b) => a + b, 0) / allAnswers.length).toFixed(2) : null;
         return { name: t.nombre, avg };
     }).filter(t => t.avg !== null);
@@ -235,26 +334,52 @@ router.get('/admin/users', requireAuth, requireRole('administrativo'), (req, res
     // Map students with their attendance stats
     const students = Object.entries(data.students).map(([username, s]) => {
         const studentAttendance = {};
-        let totalFallas = 0;
+        let totalAssistedHours = 0;
+        let totalProgramHours = 0;
+        let noteSum = 0;
+        let noteCount = 0;
 
-        // Count absences across all teachers and materias for this student
-        Object.keys(allAttendance).forEach(teacherUser => {
-            const teacherMat = allAttendance[teacherUser];
-            Object.keys(teacherMat).forEach(materia => {
-                const matDates = teacherMat[materia];
-                Object.keys(matDates).forEach(date => {
-                    if (matDates[date][username] === 'ausente') {
-                        totalFallas++;
+        s.materias.forEach(m => {
+            totalProgramHours += (m.horas || 0);
+            if (m.nota !== null && !isNaN(m.nota)) {
+                noteSum += parseFloat(m.nota);
+                noteCount++;
+            }
+            if (m.usuarioDocente && allAttendance[m.usuarioDocente] && allAttendance[m.usuarioDocente][m.materia]) {
+                const matAtt = allAttendance[m.usuarioDocente][m.materia];
+                Object.values(matAtt).forEach(dateAtt => {
+                    const hrs = dateAtt[username];
+                    if (hrs && !isNaN(hrs) && typeof hrs === 'number') {
+                        totalAssistedHours += parseFloat(hrs);
+                    } else if (hrs === 'presente') {
+                        totalAssistedHours += 1;
                     }
                 });
-            });
+            }
         });
+
+        const promedioFinal = noteCount > 0 ? parseFloat((noteSum / noteCount).toFixed(2)) : 0;
+        const attendancePct = totalProgramHours > 0 ? Math.round((totalAssistedHours / totalProgramHours) * 100) : 0;
+
+        let badgeCategory = 'Ninguna';
+        if (totalProgramHours >= 90 && totalProgramHours <= 120) badgeCategory = 'Competencia';
+        else if (totalProgramHours >= 25 && totalProgramHours <= 89) badgeCategory = 'Habilidad';
+        else if (totalProgramHours >= 12 && totalProgramHours <= 24) badgeCategory = 'Asistencia';
+
+        let insigniaStatus = 'No Cumple';
+        if (attendancePct >= 80 && promedioFinal >= 3.0 && badgeCategory !== 'Ninguna') {
+            insigniaStatus = `Insignia Digital: ${badgeCategory}`;
+        }
 
         return {
             username,
             ...s,
             attendanceStats: {
-                totalFallas,
+                totalProgramHours,
+                totalAssistedHours,
+                attendancePct,
+                promedioFinal,
+                insigniaStatus,
                 isForgiven: dataStore.getAttendanceOverride(username)
             }
         };
@@ -286,30 +411,49 @@ router.get('/admin/teacher-evaluations/:teacherUser', requireAuth, requireRole('
     const evaluations = dataStore.getTeacherEvaluations(teacherUser);
     const questions = data.evaluationQuestions || [];
 
-    // Calculate averages per question
-    const questionStats = questions.map(q => {
-        const answers = evaluations.map(e => {
-            const ans = e.answers.find(a => a.questionId == q.id);
-            return ans ? parseFloat(ans.value) : null;
-        }).filter(v => v !== null);
+    // Segment questions
+    const ratingQuestions = questions.filter(q => q.type !== 'text');
+    const textQuestions = questions.filter(q => q.type === 'text');
 
-        const avg = answers.length ? (answers.reduce((s, v) => s + v, 0) / answers.length).toFixed(2) : 'N/A';
+    // Calculate averages per section
+    const sections = [...new Set(ratingQuestions.map(q => q.section || 'General'))];
+    const sectionStats = sections.map(section => {
+        const secQs = ratingQuestions.filter(q => q.section === section || (!q.section && section === 'General'));
+        const qIds = secQs.map(q => q.id);
+        
+        let sectionAnswers = [];
+        evaluations.forEach(e => {
+            e.answers.forEach(a => {
+                if (qIds.includes(a.questionId)) {
+                    const val = parseFloat(a.value);
+                    if (!isNaN(val)) sectionAnswers.push(val);
+                }
+            });
+        });
+        const sectionAvg = sectionAnswers.length ? (sectionAnswers.reduce((s, v) => s + v, 0) / sectionAnswers.length).toFixed(2) : 'N/A';
         return {
-            id: q.id,
-            pregunta: q.pregunta,
-            avg,
-            count: answers.length
+            section,
+            avg: sectionAvg,
+            count: sectionAnswers.length
         };
     });
 
-    const allAnswers = evaluations.flatMap(e => e.answers.map(a => parseFloat(a.value)));
-    const overallAvg = allAnswers.length ? (allAnswers.reduce((s, v) => s + v, 0) / allAnswers.length).toFixed(2) : 'N/A';
+    const comments = textQuestions.flatMap(q => {
+        return evaluations.map(e => e.answers.find(a => a.questionId == q.id)?.value).filter(v => v);
+    });
+
+    const allRatingAnswers = evaluations.flatMap(e => 
+        e.answers.filter(a => ratingQuestions.some(rq => rq.id == a.questionId))
+                 .map(a => parseFloat(a.value))
+    ).filter(v => !isNaN(v));
+    const overallAvg = allRatingAnswers.length ? (allRatingAnswers.reduce((s, v) => s + v, 0) / allRatingAnswers.length).toFixed(2) : 'N/A';
 
     res.json({
         teacherName: teacher.nombre,
         overallAvg,
         totalEvaluations: evaluations.length,
-        questionStats
+        questionStats: sectionStats, // rename kept for compatibility if needed, but it refers to sections now
+        comments
     });
 });
 
@@ -353,25 +497,69 @@ router.get('/admin/export-excel', requireAuth, requireRole('administrativo'), (r
 
     // Students sheet
     const studentRows = [];
+    const allAttendance = dataStore.getAllAttendance();
+
     Object.entries(data.students).forEach(([user, s]) => {
+        let totalProgramHours = 0;
+        let totalAssistedHours = 0;
+        let noteSum = 0;
+        let noteCount = 0;
+
         s.materias.forEach(m => {
-            const attendance = dataStore.getAttendance(user, m.materia) || {};
-            const present = Object.values(attendance).filter(v => v === true).length;
-            const absent = Object.values(attendance).filter(v => v === false).length;
-            const totalSessions = m.fechas ? m.fechas.length : 0;
-            const attendancePct = totalSessions > 0 ? Math.round((present / totalSessions) * 100) : 0;
+            totalProgramHours += (m.horas || 0);
+            if (m.nota !== null && !isNaN(m.nota)) {
+                noteSum += parseFloat(m.nota);
+                noteCount++;
+            }
+            if (m.usuarioDocente && allAttendance[m.usuarioDocente] && allAttendance[m.usuarioDocente][m.materia]) {
+                const matAtt = allAttendance[m.usuarioDocente][m.materia];
+                Object.values(matAtt).forEach(dateAtt => {
+                    const hrs = dateAtt[user];
+                    if (hrs && !isNaN(hrs) && typeof hrs === 'number') {
+                        totalAssistedHours += parseFloat(hrs);
+                    } else if (hrs === 'presente') {
+                        totalAssistedHours += 1;
+                    }
+                });
+            }
+        });
+
+        const promedioFinal = noteCount > 0 ? (noteSum / noteCount) : 0;
+        const attendancePct = totalProgramHours > 0 ? Math.round((totalAssistedHours / totalProgramHours) * 100) : 0;
+
+        let badgeCategory = 'Ninguna';
+        if (totalProgramHours >= 90 && totalProgramHours <= 120) badgeCategory = 'Competencia';
+        else if (totalProgramHours >= 25 && totalProgramHours <= 89) badgeCategory = 'Habilidad';
+        else if (totalProgramHours >= 12 && totalProgramHours <= 24) badgeCategory = 'Asistencia';
+
+        let insigniaStatus = 'No Cumple';
+        if (attendancePct >= 80 && promedioFinal >= 3.0 && badgeCategory !== 'Ninguna') {
+            insigniaStatus = `Insignia Digital: ${badgeCategory}`;
+        }
+
+        s.materias.forEach(m => {
+            // materia specific attendance just for this row (optional, simplified to total if we prefer, but let's calculate per materia hrs)
+            let materiaHrs = 0;
+            if (m.usuarioDocente && allAttendance[m.usuarioDocente] && allAttendance[m.usuarioDocente][m.materia]) {
+                Object.values(allAttendance[m.usuarioDocente][m.materia]).forEach(dateAtt => {
+                    if (typeof dateAtt[user] === 'number') materiaHrs += dateAtt[user];
+                    else if (dateAtt[user] === 'presente') materiaHrs += 1;
+                });
+            }
 
             studentRows.push({
                 'Usuario': user,
                 'Nombre': s.nombre,
                 'Programa': s.programa,
+                'Insignia Digital': insigniaStatus,
                 'Materia': m.materia,
                 'Docente': m.docente,
                 'Nota': m.nota !== null ? parseFloat(m.nota) : 'Sin nota',
-                'Asistencias': present,
-                'Fallas': absent,
-                'Total Sesiones': totalSessions,
-                '% Asistencia': attendancePct + '%'
+                'Horas Asistidas Materia': materiaHrs,
+                'Total Horas Programa': totalProgramHours,
+                'Asistencias Programa (Hrs)': totalAssistedHours,
+                '% Asistencia': attendancePct + '%',
+                'Promedio Final': parseFloat(promedioFinal.toFixed(1))
             });
         });
     });

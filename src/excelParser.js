@@ -194,16 +194,47 @@ function parseExcel(filePath) {
             data.users[k].programas = data.teachers[k].programas;
         });
 
-        // Evaluation questions (simplified/default)
+        // Evaluation questions (Comprehensive Form)
         data.evaluationQuestions = [
-            { id: 1, pregunta: '¿El docente explica los temas con claridad?' },
-            { id: 2, pregunta: '¿El docente muestra dominio del tema?' },
-            { id: 3, pregunta: '¿El docente es puntual y cumple el horario?' },
-            { id: 4, pregunta: '¿El docente fomenta la participación activa?' },
-            { id: 5, pregunta: '¿El docente brinda retroalimentación oportuna?' },
-            { id: 6, pregunta: '¿El docente utiliza recursos didácticos adecuados?' },
-            { id: 7, pregunta: '¿El docente genera un ambiente de respeto?' },
-            { id: 8, pregunta: '¿Recomendarías este docente a otros estudiantes?' }
+            // 1 Contenido y Pertinencia Temática
+            { id: 1, section: 'Contenido y Pertinencia Temática', pregunta: 'El contenido temático abordado fue pertinente para mi desarrollo profesional.', type: 'rating' },
+            { id: 2, section: 'Contenido y Pertinencia Temática', pregunta: 'La profundidad y el nivel de complejidad de los contenidos fueron apropiados para el programa.', type: 'rating' },
+            { id: 3, section: 'Contenido y Pertinencia Temática', pregunta: 'Los objetivos del programa fueron claros y se alinearon con los contenidos desarrollados.', type: 'rating' },
+            
+            // 2 Desempeño Docente
+            { id: 4, section: 'Desempeño Docente', pregunta: 'El/La docente demostró un amplio dominio y actualización de los temas tratados.', type: 'rating' },
+            { id: 5, section: 'Desempeño Docente', pregunta: 'El/La docente explicó los conceptos de manera clara y organizada.', type: 'rating' },
+            { id: 6, section: 'Desempeño Docente', pregunta: 'El/La docente demostró capacidad efectiva para resolver dudas e inquietudes de los participantes.', type: 'rating' },
+            { id: 7, section: 'Desempeño Docente', pregunta: 'El trato del/la docente hacia los participantes fue respetuoso e incluyente.', type: 'rating' },
+            
+            // 3 Metodología y Estrategias Pedagógicas
+            { id: 8, section: 'Metodología y Estrategias Pedagógicas', pregunta: 'Las estrategias pedagógicas utilizadas promovieron la participación y el intercambio de ideas.', type: 'rating' },
+            { id: 9, section: 'Metodología y Estrategias Pedagógicas', pregunta: 'Las actividades prácticas y/o ejercicios propuestos contribuyeron significativamente al aprendizaje.', type: 'rating' },
+            { id: 10, section: 'Metodología y Estrategias Pedagógicas', pregunta: 'El tiempo asignado a cada tema o actividad fue suficiente para su comprensión.', type: 'rating' },
+            
+            // 4 Planeación y Organización del Curso
+            { id: 11, section: 'Planeación y Organización del Curso', pregunta: 'La estructura y secuencia de los módulos o sesiones fueron lógicas y coherentes.', type: 'rating' },
+            { id: 12, section: 'Planeación y Organización del Curso', pregunta: 'La información sobre horarios, fechas y logística fue comunicada de forma oportuna y clara.', type: 'rating' },
+            { id: 13, section: 'Planeación y Organización del Curso', pregunta: 'La gestión administrativa del programa (inscripción, certificaciones, etc.) fue eficiente.', type: 'rating' },
+
+            // 5 Recursos y Medios Utilizados
+            { id: 14, section: 'Recursos y Medios Utilizados', pregunta: 'Los recursos y materiales entregados (digitales o físicos) fueron de calidad y utilidad.', type: 'rating' },
+            { id: 15, section: 'Recursos y Medios Utilizados', pregunta: 'Los medios tecnológicos utilizados (plataformas, software, equipos) facilitaron el desarrollo del programa.', type: 'rating' },
+            { id: 16, section: 'Recursos y Medios Utilizados', pregunta: 'La infraestructura física (o virtual, si aplica) fue adecuada para el desarrollo de las sesiones.', type: 'rating' },
+
+            // 6 Logro de Aprendizajes y Evaluación
+            { id: 17, section: 'Logro de Aprendizajes y Evaluación', pregunta: 'Considero que alcancé los objetivos de aprendizaje esperados al inicio del programa.', type: 'rating' },
+            { id: 18, section: 'Logro de Aprendizajes y Evaluación', pregunta: 'Los contenidos y actividades me permitieron adquirir nuevas competencias aplicables a mi ámbito laboral.', type: 'rating' },
+            { id: 19, section: 'Logro de Aprendizajes y Evaluación', pregunta: 'Las pautas y los criterios de evaluación del programa fueron presentados con total claridad.', type: 'rating' },
+            { id: 20, section: 'Logro de Aprendizajes y Evaluación', pregunta: 'La retroalimentación recibida sobre mis evaluaciones fue constructiva y útil para mi mejora.', type: 'rating' },
+
+            // 7 Satisfacción General
+            { id: 21, section: 'Satisfacción General', pregunta: 'Estoy satisfecho con el desarrollo general del programa.', type: 'rating' },
+            { id: 22, section: 'Satisfacción General', pregunta: 'Recomendaría este programa de educación continua a otros colegas o profesionales.', type: 'rating' },
+            { id: 23, section: 'Satisfacción General', pregunta: 'El valor de la inversión (tiempo y costo) fue proporcional a la calidad de la formación recibida.', type: 'rating' },
+
+            // 8 Experiencia del Participante (Open Text)
+            { id: 24, section: 'Experiencia del Participante', pregunta: '¿Desea compartir comentarios, sugerencias o recomendaciones adicionales que contribuyan a mejorar la calidad del programa y del proceso formativo?', type: 'text' }
         ];
 
         // --- Administrativos Sheet ---

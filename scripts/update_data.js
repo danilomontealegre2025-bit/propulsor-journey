@@ -39,7 +39,11 @@ const studentsData = [
     ["1144194072", "Est27Na", "Natalia Echeverri Cardona", "Diplomado en Analítica de Negocios de Alojamiento", "DIo1", "Gerenciamsciudadjardin@hotelesms.com"],
     ["1006036595", "Est28Sa", "Santiago Muñoz Fajardo", "Diplomado en Analítica de Negocios de Alojamiento", "DIo1", "samufao107@gmail.com"],
     ["1144179760", "Est29St", "Stiven Hernández Romero", "Diplomado en Analítica de Negocios de Alojamiento", "DIo1", "stiven.hernandez@hilton.com"],
-    ["66907448", "Est30Vi", "Viviana Castro Hoyos", "Diplomado en Analítica de Negocios de Alojamiento", "DIo1", "viviana.castro@hotelobeliscocali.com"]
+    ["66907448", "Est30Vi", "Viviana Castro Hoyos", "Diplomado en Analítica de Negocios de Alojamiento", "DIo1", "viviana.castro@hotelobeliscocali.com"],
+    ["1130683651", "Est31Da", "DARLY JOHANNA ACOSTA GAVIRIA", "Diplomado en Analítica de Negocios de Alojamiento", "DIo1", "darly.acosta@gmail.com"],
+    ["1107077642", "Est32Fo", "NATALI RAMIREZ FORY", "Diplomado en Analítica de Negocios de Alojamiento", "DIo1", "natali.ramirez@gmail.com"],
+    ["52423831", "Est33Cl", "CLAUDIA XIMENA CEPEDA HIDALGO", "Diplomado en Analítica de Negocios de Alojamiento", "DIo1", "claudia.cepeda@gmail.com"],
+    ["79954231", "Est34He", "HEITHER ALEXANDER OMAÑA", "Diplomado en Analítica de Negocios de Alojamiento", "DIo1", "heither.omana@gmail.com"]
 ];
 
 const wsStudents = XLSX.utils.aoa_to_sheet(studentsData);
@@ -48,15 +52,15 @@ XLSX.utils.book_append_sheet(wb, wsStudents, "Estudiantes");
 // --- Teachers Data ---
 const teachersData = [
     ["Usuario", "Contraseña", "NOMBRE", "Código programa", "Programa asignado", "Materia", "Horas", "Fechas de clases"],
-    ["Doc01", "SA&_01_TO", "Sandra Lorena Tovar", "DIo1", "Diplomado en Analítica de Negocios de Alojamiento", "Introducción a la estrategia de datos", 2, "07, 08, 09, 14, 15, 16 de abril 2026"],
-    ["Doc02", "EM&_02_CA", "Emma Camargo", "DIo1", "Diplomado en Analítica de Negocios de Alojamiento", "Protección de datos", 2, "21, 22, 23, 28 de abril 2026"],
-    ["Doc03", "WI&_03_ES", "William Rodrigo Escobar", "DIo1", "Diplomado en Analítica de Negocios de Alojamiento", "Inteligencia de Negocios para establecimientos de alojamiento", 2, "29, 30 de abril 2026, 05, 06, 07, 12, 13, 14, 19, 20 de mayo 2026"],
-    ["Doc04", "NA&_04_AM", "Natalia Contreras Amaya", "DIo1", "Diplomado en Analítica de Negocios de Alojamiento", "Inteligencia de Negocios para establecimientos de alojamiento", 2, "21, 26, 27, 28 de mayo 2026 y 02, 03, 04, 09, 10, 11 de junio 2026"],
-    ["Doc05", "JO&_05_PE", "Jonathan Andrés Pérez López", "DIo1", "Diplomado en Analítica de Negocios de Alojamiento", "Analítica de Negocios: Power Query y estadística descriptiva aplicada", 2, "16, 17, 18, 23, 24 de junio 2026"],
-    ["Doc05", "JO&_05_PE", "Jonathan Andrés Pérez López", "DIo1", "Diplomado en Analítica de Negocios de Alojamiento", "Analítica de Negocios: Estadística Inferencial para decisiones comerciales", 2, "25, 30 de junio 2026 y 01 de julio 2026"],
-    ["Doc07", "ED&_07_SU", "Eduárez", "DIo1", "Diplomado en Analítica de Negocios de Alojamiento", "Analítica de Negocios: Tecnología de datos en turismo", 2, "02, 07, 08, 09, 14, 15, 16 de julio 2026"],
-    ["Doc08", "SA&_08_TO", "Sandra Lorena Tovar", "DIo1", "Diplomado en Analítica de Negocios de Alojamiento", "Analítica de Negocios: BI sin código: Introducción a Power BI / Looker", 2, "21, 22, 23, 28, 29, 30 de julio 2026 y 04 de agosto 2026"],
-    ["Doc09", "MA&_09_SA", "Mario Sánchez", "DIo1", "Diplomado en Analítica de Negocios de Alojamiento", "Analítica de Negocios: IA como copiloto de la analítica turística", 2, "05, 06, 11, 12, 13, 18, 19, 20 de agosto 2026"]
+    ["Doc01", "SA&_01_TO", "Sandra Lorena Tovar", "DIo1", "Diplomado en Analítica de Negocios de Alojamiento", "Introducción a la estrategia de datos", 12, "07, 08, 09, 14, 15, 16 de abril 2026"],
+    ["Doc02", "EM&_02_CA", "Emma Camargo", "DIo1", "Diplomado en Analítica de Negocios de Alojamiento", "Protección de datos", 8, "21, 22, 23, 28 de abril 2026"],
+    ["Doc03", "WI&_03_ES", "William Rodrigo Escobar", "DIo1", "Diplomado en Analítica de Negocios de Alojamiento", "Inteligencia de Negocios para establecimientos de alojamiento", 20, "29, 30 de abril 2026, 05, 06, 07, 12, 13, 14, 19, 20 de mayo 2026"],
+    ["Doc04", "NA&_04_AM", "Natalia Contreras Amaya", "DIo1", "Diplomado en Analítica de Negocios de Alojamiento", "Inteligencia de Negocios para establecimientos de alojamiento", 20, "21, 26, 27, 28 de mayo 2026 y 02, 03, 04, 09, 10, 11 de junio 2026"],
+    ["Doc05", "JO&_05_PE", "Jonathan Andrés Pérez López", "DIo1", "Diplomado en Analítica de Negocios de Alojamiento", "Analítica de Negocios: Power Query y estadística descriptiva aplicada", 10, "16, 17, 18, 23, 24 de junio 2026"],
+    ["Doc05", "JO&_05_PE", "Jonathan Andrés Pérez López", "DIo1", "Diplomado en Analítica de Negocios de Alojamiento", "Analítica de Negocios: Estadística Inferencial para decisiones comerciales", 6, "25, 30 de junio 2026 y 01 de julio 2026"],
+    ["Doc07", "ED&_07_SU", "Eduardo Suárez", "DIo1", "Diplomado en Analítica de Negocios de Alojamiento", "Analítica de Negocios: Tecnología de datos en turismo", 14, "02, 07, 08, 09, 14, 15, 16 de julio 2026"],
+    ["Doc08", "SA&_08_TO", "Sandra Lorena Tovar", "DIo1", "Diplomado en Analítica de Negocios de Alojamiento", "Analítica de Negocios: BI sin código: Introducción a Power BI / Looker", 14, "21, 22, 23, 28, 29, 30 de julio 2026 y 04 de agosto 2026"],
+    ["Doc09", "MA&_09_SA", "Mario Sánchez", "DIo1", "Diplomado en Analítica de Negocios de Alojamiento", "Analítica de Negocios: IA como copiloto de la analítica turística", 16, "05, 06, 11, 12, 13, 18, 19, 20 de agosto 2026"]
 ];
 
 const wsTeachers = XLSX.utils.aoa_to_sheet(teachersData);

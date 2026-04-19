@@ -163,7 +163,7 @@ function parseExcel(filePath) {
                     Object.entries(data.students).forEach(([sUser, sData]) => {
                         if (sData.programa === progName) {
                             // Link student to materia
-                            if (!sData.materias.find(m => m.materia === materia)) {
+                            if (!sData.materias.find(m => m.materia === materia && m.usuarioDocente === user)) {
                                 sData.materias.push({
                                     materia,
                                     nota: null,

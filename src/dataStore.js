@@ -125,6 +125,7 @@ function clearAll() {
     store.attendance = {};
     store.evaluations = {};
     store.notes = {};
+    store.attendanceOverrides = {};
     saveDB();
 }
 

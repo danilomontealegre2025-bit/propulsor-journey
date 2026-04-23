@@ -462,7 +462,7 @@ router.post('/admin/clear', requireAuth, requireRole('administrativo'), (req, re
     if (type === 'notes') dataStore.clearNotes();
     else if (type === 'evaluations') dataStore.clearEvaluations();
     else if (type === 'attendance') dataStore.clearAttendance();
-    else if (type === 'all') dataStore.clearAll();
+    else if (type === 'all') dataStore.clearAll(); // clearAll also resets attendanceOverrides
     res.json({ success: true, message: `Datos de ${type} limpiados` });
 });
 
@@ -592,17 +592,21 @@ router.get('/pdf/student', requireAuth, requireRole('estudiante'), async (req, r
         const overrides = dataStore.getNoteOverrides(username);
         const allAttendance = dataStore.getAllAttendance();
         const materias = student.materias.map(m => {
-            let presentCount = 0;
+            let horasAsistidas = 0;
+            const totalHoras = m.horas || (m.fechas ? m.fechas.length : 0);
             if (m.usuarioDocente && allAttendance[m.usuarioDocente] && allAttendance[m.usuarioDocente][m.materia]) {
                 const matAtt = allAttendance[m.usuarioDocente][m.materia];
                 Object.keys(matAtt).forEach(date => {
-                    if (matAtt[date][username] === 'presente') presentCount++;
+                    const val = matAtt[date][username];
+                    if (typeof val === 'number' && !isNaN(val)) horasAsistidas += val;
+                    else if (val === 'presente') horasAsistidas += 1;
                 });
             }
             return {
                 ...m,
                 nota: overrides[m.materia] !== undefined ? overrides[m.materia] : m.nota,
-                attendance: { present: presentCount }
+                fechas: Array(totalHoras).fill(null), // use horas as total slot count
+                attendance: { present: horasAsistidas }
             };
         });
         const pdf = await pdfGen.generateStudentPDF({ ...student, materias });
@@ -682,17 +686,21 @@ router.get('/pdf/student/:username', requireAuth, requireRole('administrativo'),
         const overrides = dataStore.getNoteOverrides(username);
         const allAttendance = dataStore.getAllAttendance();
         const materias = student.materias.map(m => {
-            let presentCount = 0;
+            let horasAsistidas = 0;
+            const totalHoras = m.horas || (m.fechas ? m.fechas.length : 0);
             if (m.usuarioDocente && allAttendance[m.usuarioDocente] && allAttendance[m.usuarioDocente][m.materia]) {
                 const matAtt = allAttendance[m.usuarioDocente][m.materia];
                 Object.keys(matAtt).forEach(date => {
-                    if (matAtt[date][username] === 'presente') presentCount++;
+                    const val = matAtt[date][username];
+                    if (typeof val === 'number' && !isNaN(val)) horasAsistidas += val;
+                    else if (val === 'presente') horasAsistidas += 1;
                 });
             }
             return {
                 ...m,
                 nota: overrides[m.materia] !== undefined ? overrides[m.materia] : m.nota,
-                attendance: { present: presentCount }
+                fechas: Array(totalHoras).fill(null), // use horas as total slot count
+                attendance: { present: horasAsistidas }
             };
         });
         const pdf = await pdfGen.generateStudentPDF({ ...student, materias });

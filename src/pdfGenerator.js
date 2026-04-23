@@ -132,8 +132,8 @@ async function generateStudentPDF(studentData) {
 
     <div class="kpi-row">
       <div class="kpi-card"><div class="kpi-val">${promedio || 'N/A'}</div><div class="kpi-lbl">Promedio General</div></div>
-      <div class="kpi-card"><div class="kpi-val">${globalAttPct}%</div><div class="kpi-lbl">Asistencia Total</div></div>
-      <div class="kpi-card"><div class="kpi-val">${globalPresent}/${globalTotal}</div><div class="kpi-lbl">Sesiones Asistidas</div></div>
+      <div class="kpi-card"><div class="kpi-val">${globalPresent}/${globalTotal}</div><div class="kpi-lbl">Horas Asistidas / Total</div></div>
+      <div class="kpi-card"><div class="kpi-val">${globalAttPct}%</div><div class="kpi-lbl">% Asistencia Global</div></div>
     </div>
 
     <table>

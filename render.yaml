@@ -11,3 +11,9 @@ services:
         value: "true"
       - key: PUPPETEER_EXECUTABLE_PATH
         value: /usr/bin/google-chrome-stable
+      - key: DATABASE_PATH
+        value: /data/db/database.json
+    disk:
+      name: propulsor-db
+      mountPath: /data/db
+      sizeGB: 1

@@ -1,11 +1,20 @@
 const fs = require('fs');
 const path = require('path');
 
-const DB_PATH = path.join(__dirname, '../data/database.json');
+// DB_PATH: can be overridden with DATABASE_PATH env var (for Render persistent disk)
+const DB_PATH = process.env.DATABASE_PATH || path.join(__dirname, '../data/database.json');
+
+// Ensure data directory exists
+const DB_DIR = path.dirname(DB_PATH);
+if (!fs.existsSync(DB_DIR)) {
+    fs.mkdirSync(DB_DIR, { recursive: true });
+}
+
+console.log(`[dataStore] Usando base de datos en: ${DB_PATH}`);
 
 // In-memory data store for attendance, evaluations, and runtime data
 let store = {
-    attendance: {},      // { teacherUser: { studentUser: 'presente'|'ausente' } }
+    attendance: {},      // { teacherUser: { materia: { date: { studentUser: hours } } } }
     attendanceOverrides: {}, // { studentUser: true } - if true, failures are forgiven
     evaluations: {},     // { studentUser: { teacherUser: { answers: [], submittedAt: Date } } }
     notes: {},           // { studentUser: { materia: nota } } - overrides from Excel
@@ -19,6 +28,10 @@ function loadDB() {
             const data = fs.readFileSync(DB_PATH, 'utf8');
             const parsed = JSON.parse(data);
             store = { ...store, ...parsed };
+            console.log('[dataStore] Base de datos cargada correctamente.');
+        } else {
+            console.log('[dataStore] No existe database.json, iniciando con base de datos vacía.');
+            saveDB(); // create the file so it persists
         }
     } catch (e) {
         console.error('Error loading database:', e);
@@ -29,7 +42,7 @@ function saveDB() {
     try {
         fs.writeFileSync(DB_PATH, JSON.stringify(store, null, 2));
     } catch (e) {
-        console.error('Error saving database:', e);
+        console.error('[dataStore] Error saving database:', e);
     }
 }
 

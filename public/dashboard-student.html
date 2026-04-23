@@ -7,6 +7,7 @@
     <title>Dashboard Estudiante — Propulsor Journey</title>
     <link rel="stylesheet" href="/css/styles.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 
 <body>
@@ -422,25 +423,157 @@
             }
         }
 
-        async function downloadPDF() {
+        function downloadPDF() {
+            if (!studentData) { showToast('Cargando datos, intenta de nuevo', 'error'); return; }
             showToast('⏳ Generando PDF...', 'info');
             try {
-                const res = await fetch('/api/pdf/student');
-                if (!res.ok) { 
-                    const errData = await res.json();
-                    showToast(errData.error || 'Error generando PDF', 'error'); 
-                    return; 
-                }
-                const blob = await res.blob();
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `reporte-academico.pdf`;
-                a.click();
-                URL.revokeObjectURL(url);
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+                const GREEN = [0, 75, 50];
+                const DARK = [0, 54, 36];
+                const W = 210; const M = 15;
+                let y = 15;
+
+                // Header bar
+                doc.setFillColor(...GREEN);
+                doc.rect(0, 0, W, 28, 'F');
+                doc.setTextColor(255, 255, 255);
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(13);
+                doc.text('Universidad Externado de Colombia', M, 11);
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(8);
+                doc.text('Facultad de Administración de Empresas Turísticas y Hoteleras', M, 17);
+                doc.text('Journey Experience Education Design', M, 22);
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(12);
+                doc.text('REPORTE ACADÉMICO', W - M, 16, { align: 'right' });
+                doc.setFontSize(8);
+                doc.setFont('helvetica', 'normal');
+                doc.text('Propulsor Journey', W - M, 22, { align: 'right' });
+                y = 36;
+
+                // Date
+                doc.setTextColor(100);
+                doc.setFontSize(8);
+                const fecha = new Date().toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' });
+                doc.text(`Generado el: ${fecha}`, W - M, y, { align: 'right' });
+
+                // Student card
+                doc.setFillColor(248, 250, 252);
+                doc.setDrawColor(...GREEN);
+                doc.setLineWidth(0.8);
+                doc.roundedRect(M, y + 4, W - M * 2, 22, 3, 3, 'FD');
+                doc.setTextColor(...DARK);
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(13);
+                doc.text(studentData.nombre, M + 4, y + 13);
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(9);
+                doc.setTextColor(80);
+                doc.text(`Programa: ${studentData.programa}`, M + 4, y + 20);
+                doc.text('Institución: Universidad Externado de Colombia', M + 4, y + 26);
+                y += 32;
+
+                // KPIs
+                const materias = studentData.materias;
+                let globalTotal = 0, globalPresent = 0;
+                materias.forEach(m => {
+                    const att = m.attendance || {};
+                    globalTotal += (att.total || 0);
+                    globalPresent += (att.present || 0);
+                });
+                const globalPct = globalTotal > 0 ? Math.round(globalPresent / globalTotal * 100) : 0;
+                const kpis = [
+                    { val: studentData.promedio || 'N/A', lbl: 'Promedio General' },
+                    { val: `${globalPresent}/${globalTotal}`, lbl: 'Horas Asist. / Total' },
+                    { val: `${globalPct}%`, lbl: '% Asistencia Global' }
+                ];
+                const kpiW = (W - M * 2 - 8) / 3;
+                kpis.forEach((k, i) => {
+                    const kx = M + i * (kpiW + 4);
+                    doc.setFillColor(...DARK);
+                    doc.roundedRect(kx, y, kpiW, 18, 3, 3, 'F');
+                    doc.setTextColor(255, 255, 255);
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(14);
+                    doc.text(String(k.val), kx + kpiW / 2, y + 10, { align: 'center' });
+                    doc.setFontSize(6.5);
+                    doc.setFont('helvetica', 'normal');
+                    doc.text(k.lbl.toUpperCase(), kx + kpiW / 2, y + 16, { align: 'center' });
+                });
+                y += 24;
+
+                // Table header
+                const cols = [55, 40, 32, 28];
+                const colX = [M, M+55, M+95, M+127, M+155];
+                doc.setFillColor(...GREEN);
+                doc.rect(M, y, W - M * 2, 8, 'F');
+                doc.setTextColor(255, 255, 255);
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(7.5);
+                ['MATERIA / MÓDULO', 'DOCENTE', 'ASISTENCIA', 'NOTA', 'RESULTADO'].forEach((h, i) => {
+                    doc.text(h, colX[i] + 2, y + 5.5);
+                });
+                y += 8;
+
+                // Table rows
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(8);
+                materias.forEach((m, idx) => {
+                    if (y > 255) { doc.addPage(); y = 15; }
+                    const att = m.attendance || { present: 0, total: 0 };
+                    const total = att.total || 0;
+                    const present = att.present || 0;
+                    const pct = total > 0 ? Math.round(present / total * 100) : 0;
+                    const nota = m.nota !== null && m.nota !== undefined ? parseFloat(m.nota).toFixed(1) : 'Sin nota';
+                    const isFailedAtt = total > 0 && pct < 80;
+                    const estado = isFailedAtt ? 'REPROBADO (FALLAS)' : (m.nota !== null ? (parseFloat(m.nota) >= 3.0 ? 'APROBADO' : 'REPROBADO') : 'PENDIENTE');
+                    const bgColor = idx % 2 === 0 ? [255,255,255] : [250,250,250];
+                    doc.setFillColor(...bgColor);
+                    doc.rect(M, y, W - M * 2, 9, 'F');
+                    doc.setTextColor(50);
+                    doc.text(m.materia.length > 28 ? m.materia.substring(0, 27) + '…' : m.materia, colX[0] + 2, y + 6);
+                    doc.text(m.docente.length > 20 ? m.docente.substring(0, 19) + '…' : m.docente, colX[1] + 2, y + 6);
+                    doc.text(`${present}/${total} (${pct}%)`, colX[2] + 2, y + 6);
+                    const notaColor = m.nota === null ? [100,100,100] : parseFloat(m.nota) >= 3.0 ? [22,163,74] : [220,38,38];
+                    doc.setTextColor(...notaColor);
+                    doc.setFont('helvetica', 'bold');
+                    doc.text(nota, colX[3] + 2, y + 6);
+                    const estadoColor = estado === 'APROBADO' ? [22,163,74] : [220,38,38];
+                    doc.setTextColor(...estadoColor);
+                    doc.setFontSize(7);
+                    doc.text(estado, colX[4] + 2, y + 6);
+                    doc.setTextColor(50);
+                    doc.setFont('helvetica', 'normal');
+                    doc.setFontSize(8);
+                    // bottom border
+                    doc.setDrawColor(230);
+                    doc.setLineWidth(0.2);
+                    doc.line(M, y + 9, W - M, y + 9);
+                    y += 9;
+                });
+
+                y += 8;
+                // Note
+                doc.setFontSize(7.5);
+                doc.setTextColor(120);
+                doc.text('* Nota mínima aprobatoria: 3.0. Requisito de asistencia: mínimo 80%.', M, y);
+                doc.text('  Si la asistencia es inferior al 80%, la materia se considera reprobada por fallas.', M, y + 4);
+
+                // Footer
+                doc.setFillColor(245, 245, 245);
+                doc.rect(0, 282, W, 15, 'F');
+                doc.setFontSize(7);
+                doc.setTextColor(150);
+                doc.text('Facultad de Administración de Empresas Turísticas y Hoteleras · Universidad Externado de Colombia', W/2, 288, { align: 'center' });
+                doc.text('Calle 12 No. 1-17 Este, Bogotá D.C. · www.uexternado.edu.co', W/2, 293, { align: 'center' });
+
+                doc.save(`reporte-academico-${studentData.nombre.replace(/\s+/g, '-')}.pdf`);
                 showToast('✅ PDF descargado', 'success');
             } catch (e) {
-                showToast('Error al descargar PDF', 'error');
+                console.error(e);
+                showToast('Error al generar PDF: ' + e.message, 'error');
             }
         }
 

@@ -7,6 +7,7 @@
     <title>Dashboard Docente — Propulsor Journey</title>
     <link rel="stylesheet" href="/css/styles.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 
 <body>
@@ -504,25 +505,148 @@
             });
         }
 
-        async function downloadPDF() {
+        function downloadPDF() {
+            if (!evalData) { showToast('Cargando datos, intenta de nuevo', 'error'); return; }
             showToast('⏳ Generando PDF...', 'info');
             try {
-                const res = await fetch('/api/pdf/teacher');
-                if (!res.ok) { 
-                    const errData = await res.json();
-                    showToast(errData.error || 'Error generando PDF', 'error'); 
-                    return; 
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+                const GREEN = [0, 75, 50];
+                const DARK = [0, 54, 36];
+                const W = 210; const M = 15;
+                let y = 0;
+
+                // Header
+                doc.setFillColor(...GREEN);
+                doc.rect(0, 0, W, 28, 'F');
+                doc.setTextColor(255, 255, 255);
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(13);
+                doc.text('Universidad Externado de Colombia', M, 11);
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(8);
+                doc.text('Facultad de Administración de Empresas Turísticas y Hoteleras', M, 17);
+                doc.text('Journey Experience Education Design', M, 22);
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(12);
+                doc.text('EVALUACIÓN DOCENTE', W - M, 16, { align: 'right' });
+                doc.setFontSize(8);
+                doc.setFont('helvetica', 'normal');
+                doc.text('Propulsor Journey', W - M, 22, { align: 'right' });
+                y = 36;
+
+                // Date
+                doc.setTextColor(100);
+                doc.setFontSize(8);
+                const fecha = new Date().toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' });
+                doc.text(`Generado el: ${fecha}`, W - M, y, { align: 'right' });
+
+                // Teacher info box
+                doc.setFillColor(248, 250, 252);
+                doc.setDrawColor(200);
+                doc.setLineWidth(0.5);
+                doc.roundedRect(M, y + 4, W - M * 2, 16, 3, 3, 'FD');
+                doc.setTextColor(...DARK);
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(12);
+                doc.text(teacherData ? teacherData.nombre : 'Docente', M + 4, y + 13);
+                y += 26;
+
+                // KPIs
+                const overallAvg = evalData.overallAvg || 'N/A';
+                const totalEvals = evalData.evaluations ? evalData.evaluations.length : 0;
+                const kpis = [
+                    { val: String(totalEvals), lbl: 'Estudiantes que evaluaron' },
+                    { val: String(overallAvg), lbl: 'Promedio General' }
+                ];
+                const kpiW = (W - M * 2 - 6) / 2;
+                kpis.forEach((k, i) => {
+                    const kx = M + i * (kpiW + 6);
+                    doc.setFillColor(...DARK);
+                    doc.roundedRect(kx, y, kpiW, 18, 3, 3, 'F');
+                    doc.setTextColor(255, 255, 255);
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(16);
+                    doc.text(k.val, kx + kpiW / 2, y + 10, { align: 'center' });
+                    doc.setFontSize(7);
+                    doc.setFont('helvetica', 'normal');
+                    doc.text(k.lbl.toUpperCase(), kx + kpiW / 2, y + 16, { align: 'center' });
+                });
+                y += 24;
+
+                // Section results
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(10);
+                doc.setTextColor(...DARK);
+                doc.text('RESULTADOS POR SECCIÓN (Escala 1–5)', M, y);
+                doc.setDrawColor(220);
+                doc.setLineWidth(0.3);
+                doc.line(M, y + 2, W - M, y + 2);
+                y += 8;
+
+                const qStats = evalData.questionStats || [];
+                qStats.forEach(q => {
+                    if (y > 260) { doc.addPage(); y = 15; }
+                    const avg = q.avg !== 'N/A' ? parseFloat(q.avg) : 0;
+                    const pct = avg / 5;
+                    const barColor = avg >= 4 ? [22,163,74] : avg >= 3 ? [245,158,11] : [220,38,38];
+
+                    doc.setFont('helvetica', 'normal');
+                    doc.setFontSize(9);
+                    doc.setTextColor(60);
+                    const label = q.section.length > 60 ? q.section.substring(0, 59) + '…' : q.section;
+                    doc.text(label, M, y);
+
+                    // Bar background
+                    const barX = M; const barY = y + 2; const barH = 5; const barW = W - M * 2 - 20;
+                    doc.setFillColor(230, 230, 230);
+                    doc.roundedRect(barX, barY, barW, barH, 2, 2, 'F');
+                    doc.setFillColor(...barColor);
+                    doc.roundedRect(barX, barY, barW * pct, barH, 2, 2, 'F');
+
+                    // Value
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(9);
+                    doc.setTextColor(...barColor);
+                    doc.text(q.avg, W - M - 2, y + 6, { align: 'right' });
+                    y += 14;
+                });
+
+                // Comments
+                if (evalData.comments && evalData.comments.length > 0) {
+                    if (y > 240) { doc.addPage(); y = 15; }
+                    y += 5;
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(10);
+                    doc.setTextColor(...DARK);
+                    doc.text('COMENTARIOS DE ESTUDIANTES', M, y);
+                    doc.setDrawColor(220);
+                    doc.line(M, y + 2, W - M, y + 2);
+                    y += 8;
+                    doc.setFont('helvetica', 'normal');
+                    doc.setFontSize(8.5);
+                    doc.setTextColor(70);
+                    evalData.comments.forEach(c => {
+                        if (y > 270) { doc.addPage(); y = 15; }
+                        const lines = doc.splitTextToSize(`• "${c}"`, W - M * 2);
+                        doc.text(lines, M, y);
+                        y += lines.length * 5 + 2;
+                    });
                 }
-                const blob = await res.blob();
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = 'informe-evaluacion-docente.pdf';
-                a.click();
-                URL.revokeObjectURL(url);
+
+                // Footer
+                doc.setFillColor(245, 245, 245);
+                doc.rect(0, 282, W, 15, 'F');
+                doc.setFontSize(7);
+                doc.setTextColor(150);
+                doc.text('Universidad Externado de Colombia · Sistema Propulsor Journey', W/2, 288, { align: 'center' });
+                doc.text(`Documento generado el ${fecha}`, W/2, 293, { align: 'center' });
+
+                doc.save('informe-evaluacion-docente.pdf');
                 showToast('✅ PDF descargado', 'success');
             } catch (e) {
-                showToast('Error al descargar PDF', 'error');
+                console.error(e);
+                showToast('Error al generar PDF: ' + e.message, 'error');
             }
         }
 
